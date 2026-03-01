@@ -1,121 +1,251 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'package:intl/intl.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: NojimaThreeCalcPage(),
+  ));
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  // This widget is the root of your application.
+class NojimaThreeCalcPage extends StatefulWidget {
+  const NojimaThreeCalcPage({super.key});
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
+  State<NojimaThreeCalcPage> createState() => _NojimaThreeCalcPageState();
+}
+
+class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
+  final formatter = NumberFormat("#,###");
+  List<String> modelNames = ["機種 1", "機種 2", "機種 3"];
+  List<List<Map<String, dynamic>>> allData = [[], [], []];
+  
+  int selectedIndex = 0; 
+  String currentInput = "0"; 
+  bool isNegative = false;
+  bool isLeftPanelVisible = true; // 左パネルの表示状態
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
   }
-}
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
+  Future<void> _loadData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? jsonStr = prefs.getString('nojima_final_v15');
+    final List<String>? savedNames = prefs.getStringList('nojima_names_v15');
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      if (jsonStr != null) {
+        Iterable l = json.decode(jsonStr);
+        allData = List<List<Map<String, dynamic>>>.from(l.map((model) => List<Map<String, dynamic>>.from(model)));
+      }
+      if (savedNames != null) modelNames = savedNames;
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+  Future<void> _saveData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('nojima_final_v15', json.encode(allData));
+    await prefs.setStringList('nojima_names_v15', modelNames);
+  }
+
+  void _handleKey(String key) {
+    setState(() {
+      if (key == "C") { 
+        currentInput = "0"; 
+        isNegative = false; 
+      } else if (key == "±") { 
+        isNegative = !isNegative; 
+      } else if (key == "BS") {
+        currentInput = currentInput.length > 1 ? currentInput.substring(0, currentInput.length - 1) : "0";
+      } else {
+        if (currentInput == "0" && key != "00") currentInput = "";
+        if (currentInput == "0" && key == "00") return;
+        currentInput += key;
+      }
+    });
+  }
+
+  void _addItem(String name, {double? fixedPrice, bool isMinus = false}) {
+    setState(() {
+      double val = fixedPrice ?? (double.tryParse(currentInput) ?? 0);
+      if (isMinus || (fixedPrice == null && isNegative)) val = -val.abs();
+      allData[selectedIndex].add({"name": name, "price": val});
+      currentInput = "0"; 
+      isNegative = false;
+      _saveData();
+    });
+  }
+
+  void _editModelName(int index) {
+    TextEditingController controller = TextEditingController(text: modelNames[index]);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('機種名の変更'),
+        content: TextField(controller: controller, decoration: const InputDecoration(hintText: "例: ダイキン 6畳")),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('キャンセル')),
+          TextButton(onPressed: () {
+            setState(() { modelNames[index] = controller.text; _saveData(); });
+            Navigator.pop(context);
+          }, child: const Text('保存')),
+        ],
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
+    );
+  }
+
+  void _editItemPrice(int modelIdx, int itemIdx) {
+    TextEditingController controller = TextEditingController(text: allData[modelIdx][itemIdx]['price'].toInt().toString());
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${allData[modelIdx][itemIdx]['name']} の修正'),
+        content: TextField(controller: controller, keyboardType: TextInputType.number, decoration: const InputDecoration(suffixText: "円")),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('キャンセル')),
+          TextButton(onPressed: () {
+            setState(() {
+              allData[modelIdx][itemIdx]['price'] = double.tryParse(controller.text) ?? 0;
+              _saveData();
+            });
+            Navigator.pop(context);
+          }, child: const Text('保存')),
+        ],
+      ),
+    );
+  }
+
+  void _showMenu(String title, Map<String, double> items) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const Divider(),
+            ...items.entries.map((e) => ListTile(
+              title: Text(e.key),
+              trailing: Text("¥${formatter.format(e.value)}"),
+              onTap: () { _addItem(e.key, fixedPrice: e.value); Navigator.pop(context); },
+            )),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    bool isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(isLeftPanelVisible ? Icons.menu_open : Icons.menu, color: Colors.white),
+          onPressed: () => setState(() => isLeftPanelVisible = !isLeftPanelVisible),
+          tooltip: "電卓の表示/非表示",
+        ),
+        title: const Text('エアコン用電卓', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.blue[600],
+        actions: isPortrait ? [
+          IconButton(icon: const Icon(Icons.chevron_left, color: Colors.white), onPressed: () => setState(() => selectedIndex = (selectedIndex - 1 + 3) % 3)),
+          Center(child: Text('${selectedIndex + 1}/3', style: const TextStyle(color: Colors.white, fontSize: 18))),
+          IconButton(icon: const Icon(Icons.chevron_right, color: Colors.white), onPressed: () => setState(() => selectedIndex = (selectedIndex + 1) % 3)),
+        ] : null,
+      ),
+      body: Row(
+        children: [
+          if (isLeftPanelVisible)
+            Container(width: 260, color: Colors.blueGrey[50], child: _buildLeftPanel()),
+          Expanded(child: isPortrait ? _buildPriceColumn(selectedIndex) : Row(children: List.generate(3, (i) => Expanded(child: _buildPriceColumn(i))))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLeftPanel() {
+    return Column(
+      children: [
+        Container(
+          margin: const EdgeInsets.all(10), padding: const EdgeInsets.all(12),
+          width: double.infinity, decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.blue[300]!, width: 2), borderRadius: BorderRadius.circular(8)),
+          child: Text("${isNegative ? '-' : ''}${formatter.format(double.tryParse(currentInput) ?? 0)}", style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blueGrey), textAlign: TextAlign.right),
+        ),
+        _buildNumPad(),
+        const Divider(height: 20),
+        Expanded(child: ListView(padding: const EdgeInsets.symmetric(horizontal: 10), children: [
+          _itemBtn("エアコン本体", Colors.blue[700]!, () => _addItem("本体")),
+          _itemBtn("標準工事 (18,150円)", Colors.green[700]!, () => _addItem("標準工事", fixedPrice: 18150)),
+          _itemBtn("室外機取り付けメニュー", Colors.orange[700]!, () => _showMenu("室外機取り付け", {"2F→1F高所": 7700, "3F→1F高所": 12000, "施策適用": -6600})),
+          _itemBtn("配管カバーメニュー", Colors.cyan[700]!, () => _showMenu("配管カバー", {"施策適用": -5500, "カバーなし": -5500, "再利用": 8800})),
+          _itemBtn("室外機階段上げ", Colors.deepPurple[600]!, () => _showMenu("室外機階段上げ", {"内階段上げ": 1100, "内階段上げ(4.0kw以上)": 2200, "内階段上げ(加湿喚起タイプ)": 4400, "外階段上げ(感動エアコン)": 1100})),
+          _itemBtn("特殊工事", Colors.grey[700]!, () => _addItem("特殊工事")),
+          _itemBtn("リサイクル (4,070円)", Colors.teal[600]!, () => _addItem("リサイクル", fixedPrice: 4070)),
+          _itemBtn("値引き", Colors.red[600]!, () => _addItem("値引き", isMinus: true)),
+          const SizedBox(height: 20),
+        ])),
+      ],
+    );
+  }
+
+  Widget _buildNumPad() {
+    List<String> keys = ["7", "8", "9", "4", "5", "6", "1", "2", "3", "±", "0", "00", "BS", "C"];
+    return Wrap(alignment: WrapAlignment.center, children: keys.map((k) => SizedBox(
+      width: 80, height: 50,
+      child: Card(elevation: 2, color: (k == "C" || k == "BS") ? Colors.red[50] : (k == "±" ? Colors.blue[50] : Colors.white), 
+        child: InkWell(onTap: () => _handleKey(k), child: Center(child: Text(k, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))))),
+    )).toList());
+  }
+
+  Widget _itemBtn(String label, Color col, VoidCallback tap) {
+    return Padding(padding: const EdgeInsets.only(bottom: 6), child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: col, elevation: 2, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), onPressed: tap, child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold))));
+  }
+
+  Widget _buildPriceColumn(int index) {
+    bool active = selectedIndex == index;
+    double total = allData[index].fold(0, (sum, item) => sum + item['price']);
+    return GestureDetector(
+      onTap: () => setState(() => selectedIndex = index), 
+      child: Container(
+        margin: const EdgeInsets.all(5),
+        decoration: BoxDecoration(border: Border.all(color: active ? Colors.blue[600]! : Colors.grey[300]!, width: active ? 4 : 1), borderRadius: BorderRadius.circular(12), color: Colors.white, boxShadow: active ? [const BoxShadow(color: Colors.black12, blurRadius: 4)] : null),
+        child: Column(children: [
+          InkWell(
+            onLongPress: () => _editModelName(index), 
+            child: Container(height: 50, color: active ? Colors.blue[600] : Colors.grey[400], padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Expanded(child: Text(modelNames[index], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18), overflow: TextOverflow.ellipsis)), // 機種名を大きく18に
+                const Icon(Icons.edit, color: Colors.white54, size: 16),
+                IconButton(icon: const Icon(Icons.delete_forever, color: Colors.white, size: 22), onPressed: () => setState(() { allData[index] = []; _saveData(); })),
+              ])),
+          ),
+          Expanded(child: ListView.builder(itemCount: allData[index].length, itemBuilder: (c, i) => Container(
+            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey[100]!))),
+            child: ListTile(
+              dense: false, 
+              onTap: () => _editItemPrice(index, i),
+              title: Text(allData[index][i]['name'], style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+              subtitle: Text("¥${formatter.format(allData[index][i]['price'])}", 
+                style: TextStyle(
+                  color: allData[index][i]['price'] < 0 ? Colors.red[700] : Colors.black, // 黒色に変更
+                  fontWeight: FontWeight.w900, 
+                  fontSize: 22, 
+                )),
+              trailing: IconButton(icon: const Icon(Icons.remove_circle_outline, size: 24, color: Colors.grey), onPressed: () => setState(() { allData[index].removeAt(i); _saveData(); })),
+            ),
+          ))),
+          Container(padding: const EdgeInsets.all(15), width: double.infinity, decoration: BoxDecoration(color: Colors.blueGrey[50], borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8))),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              const Text('合計（税込）', style: TextStyle(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.bold)),
+              Text("¥${formatter.format(total)}", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.red[700])),
+            ])),
+        ]),
       ),
     );
   }
