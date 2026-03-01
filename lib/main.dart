@@ -19,7 +19,6 @@ class NojimaThreeCalcPage extends StatefulWidget {
 class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
   final formatter = NumberFormat("#,###");
   List<String> modelNames = ["機種 1", "機種 2", "機種 3"];
-  // dynamic型にして、json保存との互換性を保ちます
   List<List<dynamic>> allData = [[], [], []];
   
   int selectedIndex = 0; 
@@ -212,7 +211,6 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
         margin: const EdgeInsets.all(5),
         decoration: BoxDecoration(border: Border.all(color: active ? Colors.blue[600]! : Colors.grey[300]!, width: active ? 4 : 1), borderRadius: BorderRadius.circular(12), color: Colors.white, boxShadow: active ? [const BoxShadow(color: Colors.black12, blurRadius: 4)] : null),
         child: Column(children: [
-          // ヘッダー部分
           InkWell(
             onLongPress: () => _editModelName(index), 
             child: Container(height: 50, color: active ? Colors.blue[600] : Colors.grey[400], padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -221,7 +219,6 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
                 IconButton(icon: const Icon(Icons.delete_forever, color: Colors.white, size: 22), onPressed: () => setState(() { allData[index] = []; _saveData(); })),
               ])),
           ),
-          // ★ 金額移動（並び替え）ができるリスト部分
           Expanded(
             child: ReorderableListView(
               onReorder: (oldIdx, newIdx) {
@@ -235,7 +232,7 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
               children: [
                 for (int i = 0; i < allData[index].length; i++)
                   Container(
-                    key: ValueKey("item-$index-$i"), // 並び替えに必須のキー
+                    key: ValueKey("item-$index-${allData[index][i]['name']}-$i"),
                     decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey[100]!))),
                     child: ListTile(
                       onTap: () => _editItemPrice(index, i),
@@ -246,13 +243,21 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
                           fontWeight: FontWeight.w900, 
                           fontSize: 22, 
                         )),
-                      trailing: const Icon(Icons.drag_handle, color: Colors.grey), // 移動できることがわかるアイコン
+                      // ★ 右側に「その行を消す」ボタンを追加
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 24),
+                        onPressed: () {
+                          setState(() {
+                            allData[index].removeAt(i);
+                            _saveData();
+                          });
+                        },
+                      ),
                     ),
                   ),
               ],
             ),
           ),
-          // 合計部分
           Container(padding: const EdgeInsets.all(15), width: double.infinity, decoration: BoxDecoration(color: Colors.blueGrey[50], borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8))),
             child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               const Text('合計（税込）', style: TextStyle(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.bold)),
