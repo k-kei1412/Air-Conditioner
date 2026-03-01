@@ -19,12 +19,13 @@ class NojimaThreeCalcPage extends StatefulWidget {
 class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
   final formatter = NumberFormat("#,###");
   List<String> modelNames = ["機種 1", "機種 2", "機種 3"];
-  List<List<Map<String, dynamic>>> allData = [[], [], []];
+  // dynamic型にして、json保存との互換性を保ちます
+  List<List<dynamic>> allData = [[], [], []];
   
   int selectedIndex = 0; 
   String currentInput = "0"; 
   bool isNegative = false;
-  bool isLeftPanelVisible = true; // 左パネルの表示状態
+  bool isLeftPanelVisible = true; 
 
   @override
   void initState() {
@@ -39,7 +40,7 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
     setState(() {
       if (jsonStr != null) {
         Iterable l = json.decode(jsonStr);
-        allData = List<List<Map<String, dynamic>>>.from(l.map((model) => List<Map<String, dynamic>>.from(model)));
+        allData = List<List<dynamic>>.from(l.map((model) => List<dynamic>.from(model)));
       }
       if (savedNames != null) modelNames = savedNames;
     });
@@ -53,14 +54,10 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
 
   void _handleKey(String key) {
     setState(() {
-      if (key == "C") { 
-        currentInput = "0"; 
-        isNegative = false; 
-      } else if (key == "±") { 
-        isNegative = !isNegative; 
-      } else if (key == "BS") {
-        currentInput = currentInput.length > 1 ? currentInput.substring(0, currentInput.length - 1) : "0";
-      } else {
+      if (key == "C") { currentInput = "0"; isNegative = false; }
+      else if (key == "±") { isNegative = !isNegative; }
+      else if (key == "BS") { currentInput = currentInput.length > 1 ? currentInput.substring(0, currentInput.length - 1) : "0"; }
+      else {
         if (currentInput == "0" && key != "00") currentInput = "";
         if (currentInput == "0" && key == "00") return;
         currentInput += key;
@@ -149,7 +146,6 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
         leading: IconButton(
           icon: Icon(isLeftPanelVisible ? Icons.menu_open : Icons.menu, color: Colors.white),
           onPressed: () => setState(() => isLeftPanelVisible = !isLeftPanelVisible),
-          tooltip: "電卓の表示/非表示",
         ),
         title: const Text('エアコン用電卓-AirSave', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.blue[600],
@@ -209,37 +205,54 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
 
   Widget _buildPriceColumn(int index) {
     bool active = selectedIndex == index;
-    double total = allData[index].fold(0, (sum, item) => sum + item['price']);
+    double total = allData[index].fold(0.0, (sum, item) => sum + (item['price'] as double));
     return GestureDetector(
       onTap: () => setState(() => selectedIndex = index), 
       child: Container(
         margin: const EdgeInsets.all(5),
         decoration: BoxDecoration(border: Border.all(color: active ? Colors.blue[600]! : Colors.grey[300]!, width: active ? 4 : 1), borderRadius: BorderRadius.circular(12), color: Colors.white, boxShadow: active ? [const BoxShadow(color: Colors.black12, blurRadius: 4)] : null),
         child: Column(children: [
+          // ヘッダー部分
           InkWell(
             onLongPress: () => _editModelName(index), 
             child: Container(height: 50, color: active ? Colors.blue[600] : Colors.grey[400], padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Expanded(child: Text(modelNames[index], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18), overflow: TextOverflow.ellipsis)), // 機種名を大きく18に
-                const Icon(Icons.edit, color: Colors.white54, size: 16),
+                Expanded(child: Text(modelNames[index], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18), overflow: TextOverflow.ellipsis)),
                 IconButton(icon: const Icon(Icons.delete_forever, color: Colors.white, size: 22), onPressed: () => setState(() { allData[index] = []; _saveData(); })),
               ])),
           ),
-          Expanded(child: ListView.builder(itemCount: allData[index].length, itemBuilder: (c, i) => Container(
-            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey[100]!))),
-            child: ListTile(
-              dense: false, 
-              onTap: () => _editItemPrice(index, i),
-              title: Text(allData[index][i]['name'], style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-              subtitle: Text("¥${formatter.format(allData[index][i]['price'])}", 
-                style: TextStyle(
-                  color: allData[index][i]['price'] < 0 ? Colors.red[700] : Colors.black, // 黒色に変更
-                  fontWeight: FontWeight.w900, 
-                  fontSize: 22, 
-                )),
-              trailing: IconButton(icon: const Icon(Icons.remove_circle_outline, size: 24, color: Colors.grey), onPressed: () => setState(() { allData[index].removeAt(i); _saveData(); })),
+          // ★ 金額移動（並び替え）ができるリスト部分
+          Expanded(
+            child: ReorderableListView(
+              onReorder: (oldIdx, newIdx) {
+                setState(() {
+                  if (newIdx > oldIdx) newIdx -= 1;
+                  final item = allData[index].removeAt(oldIdx);
+                  allData[index].insert(newIdx, item);
+                  _saveData();
+                });
+              },
+              children: [
+                for (int i = 0; i < allData[index].length; i++)
+                  Container(
+                    key: ValueKey("item-$index-$i"), // 並び替えに必須のキー
+                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey[100]!))),
+                    child: ListTile(
+                      onTap: () => _editItemPrice(index, i),
+                      title: Text(allData[index][i]['name'], style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                      subtitle: Text("¥${formatter.format(allData[index][i]['price'])}", 
+                        style: TextStyle(
+                          color: allData[index][i]['price'] < 0 ? Colors.red[700] : Colors.black,
+                          fontWeight: FontWeight.w900, 
+                          fontSize: 22, 
+                        )),
+                      trailing: const Icon(Icons.drag_handle, color: Colors.grey), // 移動できることがわかるアイコン
+                    ),
+                  ),
+              ],
             ),
-          ))),
+          ),
+          // 合計部分
           Container(padding: const EdgeInsets.all(15), width: double.infinity, decoration: BoxDecoration(color: Colors.blueGrey[50], borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8))),
             child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               const Text('合計（税込）', style: TextStyle(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.bold)),
