@@ -151,7 +151,7 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
           onPressed: () => setState(() => isLeftPanelVisible = !isLeftPanelVisible),
           tooltip: "電卓の表示/非表示",
         ),
-        title: const Text('エアコン用電卓', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text('エアコン用電卓-AirSave', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.blue[600],
         actions: isPortrait ? [
           IconButton(icon: const Icon(Icons.chevron_left, color: Colors.white), onPressed: () => setState(() => selectedIndex = (selectedIndex - 1 + 3) % 3)),
