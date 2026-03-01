@@ -24,7 +24,6 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
   int selectedIndex = 0; 
   String currentInput = "0"; 
   bool isNegative = false;
-  bool isLeftPanelVisible = true; 
 
   @override
   void initState() {
@@ -68,7 +67,12 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
     setState(() {
       double val = fixedPrice ?? (double.tryParse(currentInput) ?? 0);
       if (isMinus || (fixedPrice == null && isNegative)) val = -val.abs();
-      allData[selectedIndex].add({"name": name, "price": val});
+      // 一意のIDを付与して並び替えのバグを防ぐ
+      allData[selectedIndex].add({
+        "id": DateTime.now().millisecondsSinceEpoch.toString() + name,
+        "name": name, 
+        "price": val
+      });
       currentInput = "0"; 
       isNegative = false;
       _saveData();
@@ -86,27 +90,6 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('キャンセル')),
           TextButton(onPressed: () {
             setState(() { modelNames[index] = controller.text; _saveData(); });
-            Navigator.pop(context);
-          }, child: const Text('保存')),
-        ],
-      ),
-    );
-  }
-
-  void _editItemPrice(int modelIdx, int itemIdx) {
-    TextEditingController controller = TextEditingController(text: allData[modelIdx][itemIdx]['price'].toInt().toString());
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('${allData[modelIdx][itemIdx]['name']} の修正'),
-        content: TextField(controller: controller, keyboardType: TextInputType.number, decoration: const InputDecoration(suffixText: "円")),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('キャンセル')),
-          TextButton(onPressed: () {
-            setState(() {
-              allData[modelIdx][itemIdx]['price'] = double.tryParse(controller.text) ?? 0;
-              _saveData();
-            });
             Navigator.pop(context);
           }, child: const Text('保存')),
         ],
@@ -142,10 +125,7 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        leading: IconButton(
-          icon: Icon(isLeftPanelVisible ? Icons.menu_open : Icons.menu, color: Colors.white),
-          onPressed: () => setState(() => isLeftPanelVisible = !isLeftPanelVisible),
-        ),
+        // 電卓を消すボタン（メニューアイコン）を削除しました
         title: const Text('エアコン用電卓-AirSave', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.blue[600],
         actions: isPortrait ? [
@@ -156,8 +136,8 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
       ),
       body: Row(
         children: [
-          if (isLeftPanelVisible)
-            Container(width: 260, color: Colors.blueGrey[50], child: _buildLeftPanel()),
+          // 電卓パネルを完全に固定（非表示にする機能を削除）
+          Container(width: 260, color: Colors.blueGrey[50], child: _buildLeftPanel()),
           Expanded(child: isPortrait ? _buildPriceColumn(selectedIndex) : Row(children: List.generate(3, (i) => Expanded(child: _buildPriceColumn(i))))),
         ],
       ),
@@ -219,8 +199,10 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
                 IconButton(icon: const Icon(Icons.delete_forever, color: Colors.white, size: 22), onPressed: () => setState(() { allData[index] = []; _saveData(); })),
               ])),
           ),
+          // リスト部分：並び替えと個別削除を両立
           Expanded(
             child: ReorderableListView(
+              padding: EdgeInsets.zero,
               onReorder: (oldIdx, newIdx) {
                 setState(() {
                   if (newIdx > oldIdx) newIdx -= 1;
@@ -231,28 +213,24 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
               },
               children: [
                 for (int i = 0; i < allData[index].length; i++)
-                  Container(
-                    key: ValueKey("item-$index-${allData[index][i]['name']}-$i"),
-                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey[100]!))),
-                    child: ListTile(
-                      onTap: () => _editItemPrice(index, i),
-                      title: Text(allData[index][i]['name'], style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                      subtitle: Text("¥${formatter.format(allData[index][i]['price'])}", 
-                        style: TextStyle(
-                          color: allData[index][i]['price'] < 0 ? Colors.red[700] : Colors.black,
-                          fontWeight: FontWeight.w900, 
-                          fontSize: 22, 
-                        )),
-                      // ★ 右側に「その行を消す」ボタンを追加
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 24),
-                        onPressed: () {
-                          setState(() {
-                            allData[index].removeAt(i);
-                            _saveData();
-                          });
-                        },
-                      ),
+                  ListTile(
+                    key: ValueKey(allData[index][i]['id'] ?? i.toString()),
+                    dense: true,
+                    title: Text(allData[index][i]['name'], style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                    subtitle: Text("¥${formatter.format(allData[index][i]['price'])}", 
+                      style: TextStyle(
+                        color: allData[index][i]['price'] < 0 ? Colors.red[700] : Colors.black,
+                        fontWeight: FontWeight.w900, fontSize: 22, 
+                      )),
+                    // 右側の×ボタンでその行だけ消す
+                    trailing: IconButton(
+                      icon: const Icon(Icons.close, color: Colors.red),
+                      onPressed: () {
+                        setState(() {
+                          allData[index].removeAt(i);
+                          _saveData();
+                        });
+                      },
                     ),
                   ),
               ],
