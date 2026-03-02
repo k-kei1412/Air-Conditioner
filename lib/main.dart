@@ -146,12 +146,15 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
         backgroundColor: Colors.blue[600],
       ),
       body: Row(children: [
+        // 左側固定パネル
         Container(width: 260, color: Colors.blueGrey[50], child: _buildLeftPanel()),
+        
+        // 右側計算エリア
         Expanded(
           child: isPortrait 
             ? Column(
                 children: [
-                  _buildPortraitSelector(), // 縦向き時の切り替えインジケーター
+                  _buildPortraitSelector(), // 縦向き時の切り替え
                   Expanded(child: _buildPriceColumn(selectedIndex)),
                 ],
               )
@@ -161,7 +164,7 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
     );
   }
 
-  // 縦向き専用の切り替えボタン
+  // 縦向き専用セレクター
   Widget _buildPortraitSelector() {
     return Container(
       color: Colors.white,
@@ -174,10 +177,7 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
             onPressed: () => setState(() => selectedIndex = (selectedIndex > 0) ? selectedIndex - 1 : 2),
           ),
           const SizedBox(width: 30),
-          Text(
-            "${selectedIndex + 1} / 3",
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blueGrey),
-          ),
+          Text("${selectedIndex + 1} / 3", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
           const SizedBox(width: 30),
           IconButton(
             icon: const Icon(Icons.chevron_right, size: 40, color: Colors.blue),
@@ -228,19 +228,23 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
   Widget _buildPriceColumn(int index) {
     bool active = (selectedIndex == index);
     double total = allData[index].fold(0.0, (sum, item) => sum + (item['price'] as double));
-    return Container(
-      margin: const EdgeInsets.all(5),
-      decoration: BoxDecoration(border: Border.all(color: active ? Colors.blue[600]! : Colors.grey[300]!, width: active ? 4 : 1), borderRadius: BorderRadius.circular(12), color: Colors.white),
-      child: Column(children: [
-        InkWell(onLongPress: () => _editModelName(index), onTap: () => setState(() => selectedIndex = index), child: Container(height: 50, color: active ? Colors.blue[600] : Colors.grey[400], padding: const EdgeInsets.symmetric(horizontal: 10), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Expanded(child: Text(modelNames[index], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18), overflow: TextOverflow.ellipsis)),
-          IconButton(icon: const Icon(Icons.delete_forever, color: Colors.white, size: 22), onPressed: () => setState(() { allData[index] = []; _saveData(); })),
-        ]))),
-        Expanded(child: ReorderableListView(padding: EdgeInsets.zero, onReorder: (oldIdx, newIdx) { setState(() { if (newIdx > oldIdx) newIdx -= 1; final item = allData[index].removeAt(oldIdx); allData[index].insert(newIdx, item); _saveData(); }); }, children: [
-          for (int i = 0; i < allData[index].length; i++) Container(key: ValueKey(allData[index][i]['id']), decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey[100]!))), child: ListTile(dense: true, leading: const Icon(Icons.drag_handle), title: Text(allData[index][i]['name'], style: const TextStyle(fontSize: 14)), subtitle: Text("¥${formatter.format(allData[index][i]['price'])}", style: TextStyle(color: allData[index][i]['price'] < 0 ? Colors.red[700] : Colors.black, fontWeight: FontWeight.w900, fontSize: 22)), onTap: () => _showEditDialog(index, i), trailing: IconButton(icon: const Icon(Icons.close), onPressed: () { setState(() { allData[index].removeAt(i); _saveData(); }); }))),
-        ])),
-        Container(padding: const EdgeInsets.all(15), width: double.infinity, decoration: BoxDecoration(color: Colors.blueGrey[50], borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8))), child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [ const Text('合計（税込）', style: TextStyle(fontSize: 12, color: Colors.blueGrey)), Text("¥${formatter.format(total)}", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.red[700]))])),
-      ]),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => setState(() => selectedIndex = index), // どこを触ってもその列を選択
+      child: Container(
+        margin: const EdgeInsets.all(5),
+        decoration: BoxDecoration(border: Border.all(color: active ? Colors.blue[600]! : Colors.grey[300]!, width: active ? 4 : 1), borderRadius: BorderRadius.circular(12), color: Colors.white),
+        child: Column(children: [
+          Container(height: 50, color: active ? Colors.blue[600] : Colors.grey[400], padding: const EdgeInsets.symmetric(horizontal: 10), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Expanded(child: Text(modelNames[index], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18), overflow: TextOverflow.ellipsis)),
+            IconButton(icon: const Icon(Icons.delete_forever, color: Colors.white, size: 22), onPressed: () => setState(() { allData[index] = []; _saveData(); })),
+          ])),
+          Expanded(child: ReorderableListView(padding: EdgeInsets.zero, onReorder: (oldIdx, newIdx) { setState(() { if (newIdx > oldIdx) newIdx -= 1; final item = allData[index].removeAt(oldIdx); allData[index].insert(newIdx, item); _saveData(); }); }, children: [
+            for (int i = 0; i < allData[index].length; i++) Container(key: ValueKey(allData[index][i]['id']), decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey[100]!))), child: ListTile(dense: true, leading: const Icon(Icons.drag_handle), title: Text(allData[index][i]['name'], style: const TextStyle(fontSize: 14)), subtitle: Text("¥${formatter.format(allData[index][i]['price'])}", style: TextStyle(color: allData[index][i]['price'] < 0 ? Colors.red[700] : Colors.black, fontWeight: FontWeight.w900, fontSize: 22)), onTap: () => _showEditDialog(index, i), trailing: IconButton(icon: const Icon(Icons.close), onPressed: () { setState(() { allData[index].removeAt(i); _saveData(); }); }))),
+          ])),
+          Container(padding: const EdgeInsets.all(15), width: double.infinity, decoration: BoxDecoration(color: Colors.blueGrey[50], borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8))), child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [ const Text('合計（税込）', style: TextStyle(fontSize: 12, color: Colors.blueGrey)), Text("¥${formatter.format(total)}", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.red[700]))])),
+        ]),
+      ),
     );
   }
 
@@ -252,7 +256,7 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
 }
 
 // ---------------------------------------------------------
-// 画面2: 標準電卓 (キーボード拡大・目に優しいグレー版)
+// 画面2: 標準電卓 (たくぽち - キーボード拡大・目に優しい版)
 // ---------------------------------------------------------
 class SimpleCalcPage extends StatefulWidget {
   const SimpleCalcPage({super.key});
@@ -267,18 +271,13 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
 
   void _btnPressed(String val) {
     setState(() {
-      if (val == "C") {
-        _expression = ""; _result = "0";
-      } else if (val == "BS") {
-        if (_expression.isNotEmpty) _expression = _expression.substring(0, _expression.length - 1);
-      } else if (val == "=") {
-        if (_result != "エラー" && _result != "...") _expression = _result.replaceAll(",", "");
-      } else {
+      if (val == "C") { _expression = ""; _result = "0"; }
+      else if (val == "BS") { if (_expression.isNotEmpty) _expression = _expression.substring(0, _expression.length - 1); }
+      else if (val == "=") { if (_result != "エラー" && _result != "...") _expression = _result.replaceAll(",", ""); }
+      else {
         if (_isOperator(val) && _expression.isNotEmpty && _isOperator(_expression[_expression.length - 1])) {
           _expression = _expression.substring(0, _expression.length - 1) + val;
-        } else {
-          _expression += val;
-        }
+        } else { _expression += val; }
       }
       _calculateRealTime();
     });
@@ -292,18 +291,11 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
       String evalStr = _expression.replaceAll('×', '*').replaceAll('÷', '/');
       evalStr = evalStr.replaceAllMapped(RegExp(r'(\d+)%'), (match) => "(${match.group(1)}/100)");
       double calcResult = _evaluateExp(evalStr);
-      if (calcResult.isInfinite || calcResult.isNaN) {
-        _result = "エラー";
-      } else {
-        if (calcResult == calcResult.toInt()) {
-          _result = NumberFormat("#,###").format(calcResult.toInt());
-        } else {
-          _result = NumberFormat("#,###.###").format(calcResult);
-        }
+      if (calcResult.isInfinite || calcResult.isNaN) { _result = "エラー"; }
+      else {
+        _result = (calcResult == calcResult.toInt()) ? NumberFormat("#,###").format(calcResult.toInt()) : NumberFormat("#,###.###").format(calcResult);
       }
-    } catch (e) {
-      _result = "..."; 
-    }
+    } catch (e) { _result = "..."; }
   }
 
   double _evaluateExp(String exp) {
@@ -317,8 +309,7 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
         double left = double.tryParse(parts[i-1]) ?? 0;
         double right = double.tryParse(parts[i+1]) ?? 1;
         double res = (parts[i] == "*") ? left * right : left / right;
-        parts.replaceRange(i-1, i+2, [res.toString()]);
-        i--;
+        parts.replaceRange(i-1, i+2, [res.toString()]); i--;
       }
     }
     double total = double.tryParse(parts[0]) ?? 0;
@@ -338,7 +329,6 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
   @override
   Widget build(BuildContext context) {
     bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
-
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
@@ -362,15 +352,8 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        reverse: true,
-                        child: Text(_expression, style: const TextStyle(fontSize: 30, color: Colors.black54)),
-                      ),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(_result, style: TextStyle(fontSize: 65, fontWeight: FontWeight.bold, color: Colors.blueGrey[900])),
-                      ),
+                      SingleChildScrollView(scrollDirection: Axis.horizontal, reverse: true, child: Text(_expression, style: const TextStyle(fontSize: 30, color: Colors.black54))),
+                      FittedBox(fit: BoxFit.scaleDown, child: Text(_result, style: TextStyle(fontSize: 65, fontWeight: FontWeight.bold, color: Colors.blueGrey[900]))),
                     ],
                   ),
                 ),
@@ -387,14 +370,7 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
   }
 
   Widget _buildGrid(bool isLandscape) {
-    final List<List<String>> grid = [
-      ["C", "BS", "%", "÷"],
-      ["7", "8", "9", "×"],
-      ["4", "5", "6", "-"],
-      ["1", "2", "3", "+"],
-      ["0", "00", ".", "="],
-    ];
-
+    final List<List<String>> grid = [["C", "BS", "%", "÷"], ["7", "8", "9", "×"], ["4", "5", "6", "-"], ["1", "2", "3", "+"], ["0", "00", ".", "="]];
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -416,29 +392,15 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
     bool isOp = _isOperator(label) || label == "=";
     bool isAction = ["C", "BS", "%"].contains(label);
     Color bgColor = Colors.white;
-    Color textColor = Colors.black87;
-    if (isAction) {
-      bgColor = Colors.cyan[50]!;
-      textColor = Colors.cyan[900]!;
-    } else if (isOp) {
-      bgColor = Colors.blue[600]!;
-      textColor = Colors.white;
-    }
+    if (isAction) bgColor = Colors.cyan[50]!;
+    else if (isOp) bgColor = Colors.blue[600]!;
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTapDown: (_) => _btnPressed(label),
       child: Container(
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[200]!),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 2, offset: const Offset(0, 2)),
-          ],
-        ),
-        child: Center(
-          child: Text(label, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-        ),
+        decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey[200]!), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 2, offset: const Offset(0, 2))]),
+        child: Center(child: Text(label, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black87))),
       ),
     );
   }
