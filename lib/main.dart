@@ -142,7 +142,7 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('AirSave - 見積モード', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text('AirSave', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.blue[600],
       ),
       body: Row(children: [
@@ -216,7 +216,7 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
 }
 
 // ---------------------------------------------------------
-// 画面2: 標準電卓 (横向き履歴・見積カラー統合版)
+// 画面2: 標準電卓 (白ベース・iPad横向き完全対応版)
 // ---------------------------------------------------------
 class SimpleCalcPage extends StatefulWidget {
   const SimpleCalcPage({super.key});
@@ -227,10 +227,9 @@ class SimpleCalcPage extends StatefulWidget {
 class _SimpleCalcPageState extends State<SimpleCalcPage> {
   String _expression = ""; 
   String _result = "0";    
-  List<String> _history = []; // 計算履歴用
+  List<String> _history = []; 
   final formatter = NumberFormat("#,###.###");
 
-  // 感度を最大にするための処理
   void _btnPressed(String val) {
     setState(() {
       if (val == "C") {
@@ -238,16 +237,12 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
       } else if (val == "BS") {
         if (_expression.isNotEmpty) _expression = _expression.substring(0, _expression.length - 1);
       } else if (val == "=") {
-        if (_result != "エラー" && _result != "...") {
-          // 履歴に数式を追加（例: "100 + 200 = 300"）
+        if (_result != "エラー" && _result != "..." && _expression.isNotEmpty) {
           _history.insert(0, "$_expression = $_result"); 
-          if (_history.length > 20) _history.removeLast(); // 20件まで保存
-          
-          // 結果を入力欄にセットして、次の計算に使えるようにする
+          if (_history.length > 20) _history.removeLast();
           _expression = _result.replaceAll(",", "");
         }
       } else {
-        // 演算子の連続入力を防ぐ
         if (_isOperator(val) && _expression.isNotEmpty && _isOperator(_expression[_expression.length - 1])) {
           _expression = _expression.substring(0, _expression.length - 1) + val;
         } else {
@@ -269,7 +264,6 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
       if (calcResult.isInfinite || calcResult.isNaN) {
         _result = "エラー";
       } else {
-        // 桁数が多い場合の処理
         if (calcResult.abs() > 999999999999) {
           _result = calcResult.toStringAsExponential(2);
         } else if (calcResult == calcResult.toInt()) {
@@ -315,79 +309,66 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black, // 背景を黒に
+      backgroundColor: Colors.white, // 白ベースに変更
       body: SafeArea(
         child: OrientationBuilder(
           builder: (context, orientation) {
-            // 画面の向きに合わせてレイアウトを切り替え
-            if (orientation == Orientation.portrait) {
-              return _buildPortraitLayout(); // 縦向き
-            } else {
-              return _buildLandscapeLayout(); // 横向き
-            }
+            return (orientation == Orientation.portrait) 
+                ? _buildPortraitLayout() 
+                : _buildLandscapeLayout();
           },
         ),
       ),
     );
   }
 
-  // 【縦向きレイアウト】（これまでと同じ、中央に電卓）
+  // 【縦向き】
   Widget _buildPortraitLayout() {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 550), // iPadでも広がりすぎないように制限
-        child: Column(
-          children: [
-            _buildDisplayArea(flex: 4), // 表示エリア
-            _buildButtonGrid(flex: 6, aspectRatio: 1.1, spacing: 15), // ボタン
-          ],
-        ),
-      ),
+    return Column(
+      children: [
+        _buildDisplayArea(flex: 3),
+        _buildButtonGrid(flex: 7, aspectRatio: 1.1, spacing: 12),
+      ],
     );
   }
 
-  // 【横向きレイアウト】（写真image_1.pngを参考にした2カラム構成）
+  // 【横向き】ボタンが潰れないよう比率を厳格に管理
   Widget _buildLandscapeLayout() {
     return Row(
       children: [
-        // 左カラム：履歴エリア
+        // 左：履歴
         Expanded(
-          flex: 4, // 画面幅の4割
+          flex: 3,
           child: Container(
-            decoration: BoxDecoration(
-              border: Border(right: BorderSide(color: Colors.grey[900]!, width: 2)), // 境界線
-            ),
+            color: Colors.blueGrey[50],
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Text("計算履歴", style: TextStyle(color: Colors.white70, fontSize: 24, fontWeight: FontWeight.bold)),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text("履歴", style: TextStyle(color: Colors.blue[900], fontSize: 20, fontWeight: FontWeight.bold)),
                 ),
                 Expanded(
                   child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: _history.length,
-                    itemBuilder: (context, index) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Text(_history[index], 
-                          style: const TextStyle(color: Colors.white38, fontSize: 18, fontWeight: FontWeight.w300)),
-                      );
-                    },
+                    itemBuilder: (context, i) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(_history[i], style: const TextStyle(color: Colors.black54, fontSize: 16)),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
         ),
-        // 右カラム：電卓エリア
+        // 右：電卓
         Expanded(
-          flex: 6, // 画面幅の6割
+          flex: 7,
           child: Column(
             children: [
-              _buildDisplayArea(flex: 3), // 横向きは表示エリアを少し狭く
-              _buildButtonGrid(flex: 7, aspectRatio: 1.4, spacing: 10), // ボタンを平たく
+              _buildDisplayArea(flex: 2), // 表示エリアをさらにコンパクトに
+              _buildButtonGrid(flex: 8, aspectRatio: 1.8, spacing: 10), // iPad横向きで押しやすい比率
             ],
           ),
         ),
@@ -395,30 +376,26 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
     );
   }
 
-  // 計算表示エリアの共通部品
+  // 表示エリア
   Widget _buildDisplayArea({required int flex}) {
     return Expanded(
       flex: flex,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
         alignment: Alignment.bottomRight,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.end,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            // 計算式（白で見やすく）
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               reverse: true,
-              child: Text(_expression, 
-                style: const TextStyle(fontSize: 50, color: Colors.white, fontWeight: FontWeight.w300, letterSpacing: 2)),
+              child: Text(_expression, style: const TextStyle(fontSize: 36, color: Colors.black54)),
             ),
-            const SizedBox(height: 12),
-            // リアルタイム結果（青系で見やすく）
+            const SizedBox(height: 5),
             FittedBox(
               fit: BoxFit.scaleDown,
-              child: Text(_result, 
-                style: const TextStyle(fontSize: 100, fontWeight: FontWeight.bold, color: Color(0xFF40E0D0))),
+              child: Text(_result, style: TextStyle(fontSize: 80, fontWeight: FontWeight.bold, color: Colors.blue[800])),
             ),
           ],
         ),
@@ -426,7 +403,7 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
     );
   }
 
-  // ボタンエリアの共通部品
+  // ボタンエリア
   Widget _buildButtonGrid({required int flex, required double aspectRatio, required double spacing}) {
     final List<List<String>> grid = [
       ["C", "BS", "%", "÷"],
@@ -448,44 +425,41 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
             crossAxisSpacing: spacing,
           ),
           itemCount: 20,
-          itemBuilder: (context, index) {
-            return _buildTouchButton(grid[index ~/ 4][index % 4]);
-          },
+          itemBuilder: (context, index) => _buildTouchButton(grid[index ~/ 4][index % 4]),
         ),
       ),
     );
   }
 
-  // 高感度＆見積もりカラーのカスタムボタン
   Widget _buildTouchButton(String label) {
     bool isOp = _isOperator(label) || label == "=";
-    bool isAction = ["C", "BS"].contains(label);
+    bool isAction = ["C", "BS", "%"].contains(label);
 
-    // 見積もりモードに合わせた色設計
-    Color bgColor = const Color(0xFF2C2C2E); // 基本はApple風ダークグレー
-    Color textColor = Colors.white;
+    Color bgColor = Colors.white;
+    Color textColor = Colors.black87;
 
     if (isAction) {
-      bgColor = const Color(0xFF636366); // クリア系は少し明るいグレー（写真image_1.png参考）
-      textColor = Colors.cyanAccent[100]!; // 文字色は見積モードのCと同じ水色系
+      bgColor = Colors.cyan[50]!;
+      textColor = Colors.cyan[900]!;
     } else if (isOp) {
-      bgColor = const Color(0xFFFF9F0A); // 演算子はオレンジ（写真image_1.png参考）
+      bgColor = Colors.blue[600]!;
+      textColor = Colors.white;
     }
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTapDown: (_) => _btnPressed(label), // 指が触れた瞬間に反応
+      onTapDown: (_) => _btnPressed(label),
       child: Container(
         decoration: BoxDecoration(
           color: bgColor,
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[200]!),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2)),
+            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2)),
           ],
         ),
         child: Center(
-          child: Text(label, 
-            style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: textColor)),
+          child: Text(label, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
         ),
       ),
     );
