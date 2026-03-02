@@ -216,7 +216,7 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
 }
 
 // ---------------------------------------------------------
-// 画面2: シンプル標準電卓 (リアルタイム計算版)
+// 画面2: シンプル標準電卓 (iPad対応・リアルタイム計算版)
 // ---------------------------------------------------------
 class SimpleCalcPage extends StatefulWidget {
   const SimpleCalcPage({super.key});
@@ -225,25 +225,19 @@ class SimpleCalcPage extends StatefulWidget {
 }
 
 class _SimpleCalcPageState extends State<SimpleCalcPage> {
-  String _expression = ""; // 計算式
-  String _result = "0";    // リアルタイムの答え
+  String _expression = ""; 
+  String _result = "0";    
   final formatter = NumberFormat("#,###");
 
   void _btnPressed(String val) {
     setState(() {
       if (val == "C") {
-        _expression = "";
-        _result = "0";
+        _expression = ""; _result = "0";
       } else if (val == "BS") {
-        if (_expression.isNotEmpty) {
-          _expression = _expression.substring(0, _expression.length - 1);
-        }
+        if (_expression.isNotEmpty) _expression = _expression.substring(0, _expression.length - 1);
       } else if (val == "=") {
-        if (_result != "エラー") {
-          _expression = _result.replaceAll(",", "");
-        }
+        if (_result != "エラー" && _result != "...") _expression = _result.replaceAll(",", "");
       } else {
-        // 連続して演算子が打たれないように制御
         if (_isOperator(val) && _expression.isNotEmpty && _isOperator(_expression[_expression.length - 1])) {
           _expression = _expression.substring(0, _expression.length - 1) + val;
         } else {
@@ -257,24 +251,14 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
   bool _isOperator(String char) => ["+", "-", "×", "÷", "%"].contains(char);
 
   void _calculateRealTime() {
-    if (_expression.isEmpty) {
-      _result = "0";
-      return;
-    }
+    if (_expression.isEmpty) { _result = "0"; return; }
     try {
-      // 内部計算用に数式を置換
       String evalStr = _expression.replaceAll('×', '*').replaceAll('÷', '/');
-      
-      // % の簡易処理 (数字% を 数字/100 に)
       evalStr = evalStr.replaceAllMapped(RegExp(r'(\d+)%'), (match) => "(${match.group(1)}/100)");
-
-      // 簡易的な解析（複雑な数式ならパッケージが必要ですが、四則演算ならこれで対応）
       double calcResult = _evaluateExp(evalStr);
-      
       if (calcResult.isInfinite || calcResult.isNaN) {
         _result = "エラー";
       } else {
-        // 小数点以下の処理
         if (calcResult == calcResult.toInt()) {
           _result = formatter.format(calcResult.toInt());
         } else {
@@ -282,37 +266,30 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
         }
       }
     } catch (e) {
-      _result = "..."; // 入力途中
+      _result = "..."; 
     }
   }
 
-  // 四則演算の簡易エバリュエータ
   double _evaluateExp(String exp) {
-    // 末尾が演算子なら無視して計算
     String cleanExp = exp;
-    if (_isOperator(exp[exp.length - 1].replaceAll('*','×').replaceAll('/','÷'))) {
-      cleanExp = exp.substring(0, exp.length - 1);
-    }
+    if (exp.isEmpty) return 0;
+    if ("+-*/".contains(exp[exp.length - 1])) cleanExp = exp.substring(0, exp.length - 1);
     
-    // JSのevalのような機能がDart標準にないため、簡易的な計算ロジック
-    // ※より複雑な計算が必要な場合は 'expressions' パッケージの使用を推奨
     List<String> parts = _tokenize(cleanExp);
     if (parts.isEmpty) return 0;
     
-    // 乗除を先に計算
     for (int i = 0; i < parts.length; i++) {
       if (parts[i] == "*" || parts[i] == "/") {
-        double left = double.parse(parts[i-1]);
-        double right = double.parse(parts[i+1]);
+        double left = double.tryParse(parts[i-1]) ?? 0;
+        double right = double.tryParse(parts[i+1]) ?? 1;
         double res = (parts[i] == "*") ? left * right : left / right;
         parts.replaceRange(i-1, i+2, [res.toString()]);
         i--;
       }
     }
-    // 加減を計算
-    double total = double.parse(parts[0]);
+    double total = double.tryParse(parts[0]) ?? 0;
     for (int i = 1; i < parts.length; i += 2) {
-      double next = double.parse(parts[i+1]);
+      double next = double.tryParse(parts[i+1]) ?? 0;
       if (parts[i] == "+") total += next;
       if (parts[i] == "-") total -= next;
     }
@@ -327,7 +304,7 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
   @override
   Widget build(BuildContext context) {
     List<List<String>> grid = [
-      ["BS", "C", "%", "÷"],
+      ["C", "BS", "%", "÷"],
       ["7", "8", "9", "×"],
       ["4", "5", "6", "-"],
       ["1", "2", "3", "+"],
@@ -335,50 +312,58 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
     ];
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.blueGrey[50], // 少し背景に色をつけて電卓を際立たせる
       appBar: AppBar(title: const Text("標準電卓"), backgroundColor: Colors.blueGrey[800]),
-      body: Column(
-        children: [
-          // 表示エリア（写真のような構成）
-          Expanded(
-            flex: 2,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(_expression, style: const TextStyle(fontSize: 48, color: Colors.black87)),
-                  const SizedBox(height: 10),
-                  Text(_result, style: TextStyle(fontSize: 32, color: Colors.blueGrey[400])),
-                ],
-              ),
-            ),
-          ),
-          // ボタンエリア（正方形のグリッド）
-          Expanded(
-            flex: 5,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              color: Colors.grey[100],
-              child: GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  childAspectRatio: 1.0, // ここで正方形に固定
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 500), // iPadでも広がりすぎない
+          child: Container(
+            color: Colors.white,
+            child: Column(
+              children: [
+                // 表示エリア
+                Expanded(
+                  flex: 3,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(32),
+                    alignment: Alignment.bottomRight,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(_expression, style: const TextStyle(fontSize: 40, color: Colors.black54), maxLines: 2),
+                        const SizedBox(height: 8),
+                        Text(_result, style: TextStyle(fontSize: 60, fontWeight: FontWeight.bold, color: Colors.blueGrey[900])),
+                      ],
+                    ),
+                  ),
                 ),
-                itemCount: 20,
-                itemBuilder: (context, index) {
-                  int r = index ~/ 4;
-                  int c = index % 4;
-                  String label = grid[r][c];
-                  return _buildSquareButton(label);
-                },
-              ),
+                // ボタンエリア
+                Expanded(
+                  flex: 7,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: GridView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 4,
+                        childAspectRatio: 1.1, // 正方形に近い形を維持
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                      ),
+                      itemCount: 20,
+                      itemBuilder: (context, index) {
+                        String label = grid[index ~/ 4][index % 4];
+                        return _buildSquareButton(label);
+                      },
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -387,18 +372,15 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
     bool isOp = _isOperator(label) || label == "=";
     bool isAction = ["C", "BS"].contains(label);
 
-    return Padding(
-      padding: const EdgeInsets.all(4),
-      child: ElevatedButton(
-        onPressed: () => _btnPressed(label),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isAction ? Colors.cyan[100] : (isOp ? Colors.orange[100] : Colors.white),
-          foregroundColor: isAction ? Colors.cyan[900] : (isOp ? Colors.orange[900] : Colors.black87),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          elevation: 1,
-        ),
-        child: Text(label, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+    return ElevatedButton(
+      onPressed: () => _btnPressed(label),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isAction ? Colors.cyan[100] : (isOp ? Colors.orange[100] : Colors.grey[50]),
+        foregroundColor: isAction ? Colors.cyan[900] : (isOp ? Colors.orange[900] : Colors.black87),
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), // 少し丸みを持たせてモダンに
       ),
+      child: Text(label, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
     );
   }
 }
