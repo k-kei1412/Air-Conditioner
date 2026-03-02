@@ -216,7 +216,7 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
 }
 
 // ---------------------------------------------------------
-// 画面2: 標準電卓 (白ベース・iPad横向き完全対応版)
+// 画面2: 標準電卓 (サイズ最適化・白ベース・横向き対応版)
 // ---------------------------------------------------------
 class SimpleCalcPage extends StatefulWidget {
   const SimpleCalcPage({super.key});
@@ -227,7 +227,6 @@ class SimpleCalcPage extends StatefulWidget {
 class _SimpleCalcPageState extends State<SimpleCalcPage> {
   String _expression = ""; 
   String _result = "0";    
-  List<String> _history = []; 
   final formatter = NumberFormat("#,###.###");
 
   void _btnPressed(String val) {
@@ -237,11 +236,7 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
       } else if (val == "BS") {
         if (_expression.isNotEmpty) _expression = _expression.substring(0, _expression.length - 1);
       } else if (val == "=") {
-        if (_result != "エラー" && _result != "..." && _expression.isNotEmpty) {
-          _history.insert(0, "$_expression = $_result"); 
-          if (_history.length > 20) _history.removeLast();
-          _expression = _result.replaceAll(",", "");
-        }
+        if (_result != "エラー" && _result != "...") _expression = _result.replaceAll(",", "");
       } else {
         if (_isOperator(val) && _expression.isNotEmpty && _isOperator(_expression[_expression.length - 1])) {
           _expression = _expression.substring(0, _expression.length - 1) + val;
@@ -264,9 +259,7 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
       if (calcResult.isInfinite || calcResult.isNaN) {
         _result = "エラー";
       } else {
-        if (calcResult.abs() > 999999999999) {
-          _result = calcResult.toStringAsExponential(2);
-        } else if (calcResult == calcResult.toInt()) {
+        if (calcResult == calcResult.toInt()) {
           _result = NumberFormat("#,###").format(calcResult.toInt());
         } else {
           _result = NumberFormat("#,###.###").format(calcResult);
@@ -308,103 +301,61 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
 
   @override
   Widget build(BuildContext context) {
+    bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+
     return Scaffold(
-      backgroundColor: Colors.white, // 白ベースに変更
-      body: SafeArea(
-        child: OrientationBuilder(
-          builder: (context, orientation) {
-            return (orientation == Orientation.portrait) 
-                ? _buildPortraitLayout() 
-                : _buildLandscapeLayout();
-          },
-        ),
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text("標準電卓", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.blueGrey[800],
+        elevation: 0,
       ),
-    );
-  }
-
-  // 【縦向き】
-  Widget _buildPortraitLayout() {
-    return Column(
-      children: [
-        _buildDisplayArea(flex: 3),
-        _buildButtonGrid(flex: 7, aspectRatio: 1.1, spacing: 12),
-      ],
-    );
-  }
-
-  // 【横向き】ボタンが潰れないよう比率を厳格に管理
-  Widget _buildLandscapeLayout() {
-    return Row(
-      children: [
-        // 左：履歴
-        Expanded(
-          flex: 3,
-          child: Container(
-            color: Colors.blueGrey[50],
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text("履歴", style: TextStyle(color: Colors.blue[900], fontSize: 20, fontWeight: FontWeight.bold)),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _history.length,
-                    itemBuilder: (context, i) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(_history[i], style: const TextStyle(color: Colors.black54, fontSize: 16)),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        // 右：電卓
-        Expanded(
-          flex: 7,
+      body: Center(
+        child: ConstrainedBox(
+          // ここで最大幅を 450 に制限することで、横向きでも広がりすぎないようにしました
+          constraints: const BoxConstraints(maxWidth: 450),
           child: Column(
             children: [
-              _buildDisplayArea(flex: 2), // 表示エリアをさらにコンパクトに
-              _buildButtonGrid(flex: 8, aspectRatio: 1.8, spacing: 10), // iPad横向きで押しやすい比率
+              // 表示エリア
+              Expanded(
+                flex: isLandscape ? 3 : 4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  alignment: Alignment.bottomRight,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        reverse: true,
+                        child: Text(_expression, style: const TextStyle(fontSize: 32, color: Colors.black54)),
+                      ),
+                      const SizedBox(height: 8),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(_result, style: TextStyle(fontSize: 70, fontWeight: FontWeight.bold, color: Colors.blueGrey[900])),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // ボタンエリア
+              Expanded(
+                flex: isLandscape ? 7 : 6,
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: _buildGrid(),
+                ),
+              ),
             ],
           ),
         ),
-      ],
-    );
-  }
-
-  // 表示エリア
-  Widget _buildDisplayArea({required int flex}) {
-    return Expanded(
-      flex: flex,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-        alignment: Alignment.bottomRight,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              reverse: true,
-              child: Text(_expression, style: const TextStyle(fontSize: 36, color: Colors.black54)),
-            ),
-            const SizedBox(height: 5),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(_result, style: TextStyle(fontSize: 80, fontWeight: FontWeight.bold, color: Colors.blue[800])),
-            ),
-          ],
-        ),
       ),
     );
   }
 
-  // ボタンエリア
-  Widget _buildButtonGrid({required int flex, required double aspectRatio, required double spacing}) {
+  Widget _buildGrid() {
     final List<List<String>> grid = [
       ["C", "BS", "%", "÷"],
       ["7", "8", "9", "×"],
@@ -412,22 +363,20 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
       ["1", "2", "3", "+"],
       ["0", "00", ".", "="],
     ];
-    return Expanded(
-      flex: flex,
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: GridView.builder(
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4,
-            childAspectRatio: aspectRatio, 
-            mainAxisSpacing: spacing,
-            crossAxisSpacing: spacing,
-          ),
-          itemCount: 20,
-          itemBuilder: (context, index) => _buildTouchButton(grid[index ~/ 4][index % 4]),
-        ),
+
+    return GridView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        childAspectRatio: 1.15, // 少し横長にしてボタンの押しやすさを確保
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
       ),
+      itemCount: 20,
+      itemBuilder: (context, index) {
+        String label = grid[index ~/ 4][index % 4];
+        return _buildTouchButton(label);
+      },
     );
   }
 
@@ -435,7 +384,8 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
     bool isOp = _isOperator(label) || label == "=";
     bool isAction = ["C", "BS", "%"].contains(label);
 
-    Color bgColor = Colors.white;
+    // 見積モードの色に合わせた配色
+    Color bgColor = Colors.grey[100]!;
     Color textColor = Colors.black87;
 
     if (isAction) {
@@ -453,13 +403,12 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[200]!),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2)),
+            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 2, offset: const Offset(0, 2)),
           ],
         ),
         child: Center(
-          child: Text(label, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+          child: Text(label, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
         ),
       ),
     );
