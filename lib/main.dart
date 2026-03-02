@@ -22,8 +22,8 @@ class MainNavigationPage extends StatefulWidget {
 class _MainNavigationPageState extends State<MainNavigationPage> {
   int _screenIndex = 0;
   final List<Widget> _screens = [
-    const NojimaThreeCalcPage(), // 画面1: エアコン見積
-    const SimpleCalcPage(),      // 画面2: 標準電卓
+    const NojimaThreeCalcPage(),
+    const SimpleCalcPage(),
   ];
 
   @override
@@ -34,7 +34,6 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
         currentIndex: _screenIndex,
         onTap: (index) => setState(() => _screenIndex = index),
         selectedItemColor: Colors.blue[800],
-        unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.calculate), label: '見積モード'),
           BottomNavigationBarItem(icon: Icon(Icons.apps), label: '標準電卓'),
@@ -143,7 +142,7 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('AirSave', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text('AirSave - 見積モード', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.blue[600],
       ),
       body: Row(children: [
@@ -181,9 +180,7 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
     List<String> keys = ["7", "8", "9", "4", "5", "6", "1", "2", "3", "±", "0", "00", "BS", "C"];
     return Wrap(alignment: WrapAlignment.center, children: keys.map((k) => SizedBox(
       width: 80, height: 50,
-      child: Card(elevation: 2, 
-        // 見積モードのクリア系も寒色（水色系）に変更
-        color: (k == "C" || k == "BS") ? Colors.cyan[50] : (k == "±" ? Colors.blue[50] : Colors.white), 
+      child: Card(elevation: 2, color: (k == "C" || k == "BS") ? Colors.cyan[50] : (k == "±" ? Colors.blue[50] : Colors.white), 
         child: InkWell(onTap: () => _handleKey(k), child: Center(child: Text(k, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: (k == "C" || k == "BS") ? Colors.cyan[800] : Colors.black87))))),
     )).toList());
   }
@@ -219,7 +216,7 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
 }
 
 // ---------------------------------------------------------
-// 画面2: シンプル標準電卓 (裏面用)
+// 画面2: シンプル標準電卓 (リアルタイム計算版)
 // ---------------------------------------------------------
 class SimpleCalcPage extends StatefulWidget {
   const SimpleCalcPage({super.key});
@@ -228,47 +225,109 @@ class SimpleCalcPage extends StatefulWidget {
 }
 
 class _SimpleCalcPageState extends State<SimpleCalcPage> {
-  String _output = "0";
-  double _num1 = 0;
-  String _operand = "";
-  bool _isNew = true;
+  String _expression = ""; // 計算式
+  String _result = "0";    // リアルタイムの答え
+  final formatter = NumberFormat("#,###");
 
   void _btnPressed(String val) {
     setState(() {
-      if (val == "C") { _output = "0"; _num1 = 0; _operand = ""; _isNew = true; } 
-      else if (val == "BS") {
-        if (_output.length > 1) { _output = _output.substring(0, _output.length - 1); } else { _output = "0"; _isNew = true; }
+      if (val == "C") {
+        _expression = "";
+        _result = "0";
+      } else if (val == "BS") {
+        if (_expression.isNotEmpty) {
+          _expression = _expression.substring(0, _expression.length - 1);
+        }
+      } else if (val == "=") {
+        if (_result != "エラー") {
+          _expression = _result.replaceAll(",", "");
+        }
+      } else {
+        // 連続して演算子が打たれないように制御
+        if (_isOperator(val) && _expression.isNotEmpty && _isOperator(_expression[_expression.length - 1])) {
+          _expression = _expression.substring(0, _expression.length - 1) + val;
+        } else {
+          _expression += val;
+        }
       }
-      else if (val == "%") {
-        double current = double.tryParse(_output) ?? 0;
-        _output = (current / 100).toString();
-      }
-      else if (val == "+" || val == "-" || val == "×" || val == "÷") {
-        _num1 = double.tryParse(_output) ?? 0;
-        _operand = val;
-        _isNew = true;
-      } 
-      else if (val == "=") {
-        double num2 = double.tryParse(_output) ?? 0;
-        double result = 0;
-        if (_operand == "+") result = _num1 + num2;
-        if (_operand == "-") result = _num1 - num2;
-        if (_operand == "×") result = _num1 * num2;
-        if (_operand == "÷") result = (num2 != 0) ? _num1 / num2 : 0;
-        _output = result.toString();
-        if (_output.endsWith(".0")) _output = _output.substring(0, _output.length - 2);
-        _operand = ""; _isNew = true;
-      } 
-      else {
-        if (_isNew || _output == "0") { _output = val; _isNew = false; } else { _output += val; }
-      }
+      _calculateRealTime();
     });
+  }
+
+  bool _isOperator(String char) => ["+", "-", "×", "÷", "%"].contains(char);
+
+  void _calculateRealTime() {
+    if (_expression.isEmpty) {
+      _result = "0";
+      return;
+    }
+    try {
+      // 内部計算用に数式を置換
+      String evalStr = _expression.replaceAll('×', '*').replaceAll('÷', '/');
+      
+      // % の簡易処理 (数字% を 数字/100 に)
+      evalStr = evalStr.replaceAllMapped(RegExp(r'(\d+)%'), (match) => "(${match.group(1)}/100)");
+
+      // 簡易的な解析（複雑な数式ならパッケージが必要ですが、四則演算ならこれで対応）
+      double calcResult = _evaluateExp(evalStr);
+      
+      if (calcResult.isInfinite || calcResult.isNaN) {
+        _result = "エラー";
+      } else {
+        // 小数点以下の処理
+        if (calcResult == calcResult.toInt()) {
+          _result = formatter.format(calcResult.toInt());
+        } else {
+          _result = calcResult.toStringAsFixed(2);
+        }
+      }
+    } catch (e) {
+      _result = "..."; // 入力途中
+    }
+  }
+
+  // 四則演算の簡易エバリュエータ
+  double _evaluateExp(String exp) {
+    // 末尾が演算子なら無視して計算
+    String cleanExp = exp;
+    if (_isOperator(exp[exp.length - 1].replaceAll('*','×').replaceAll('/','÷'))) {
+      cleanExp = exp.substring(0, exp.length - 1);
+    }
+    
+    // JSのevalのような機能がDart標準にないため、簡易的な計算ロジック
+    // ※より複雑な計算が必要な場合は 'expressions' パッケージの使用を推奨
+    List<String> parts = _tokenize(cleanExp);
+    if (parts.isEmpty) return 0;
+    
+    // 乗除を先に計算
+    for (int i = 0; i < parts.length; i++) {
+      if (parts[i] == "*" || parts[i] == "/") {
+        double left = double.parse(parts[i-1]);
+        double right = double.parse(parts[i+1]);
+        double res = (parts[i] == "*") ? left * right : left / right;
+        parts.replaceRange(i-1, i+2, [res.toString()]);
+        i--;
+      }
+    }
+    // 加減を計算
+    double total = double.parse(parts[0]);
+    for (int i = 1; i < parts.length; i += 2) {
+      double next = double.parse(parts[i+1]);
+      if (parts[i] == "+") total += next;
+      if (parts[i] == "-") total -= next;
+    }
+    return total;
+  }
+
+  List<String> _tokenize(String exp) {
+    RegExp reg = RegExp(r'(\d+\.?\d*)|([\+\-\*/])');
+    return reg.allMatches(exp).map((m) => m.group(0)!).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     List<List<String>> grid = [
-      ["C", "BS", "%", "÷"],
+      ["BS", "C", "%", "÷"],
       ["7", "8", "9", "×"],
       ["4", "5", "6", "-"],
       ["1", "2", "3", "+"],
@@ -277,31 +336,69 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(title: const Text("標準電卓", style: TextStyle(color: Colors.white)), backgroundColor: Colors.blueGrey[800], elevation: 0),
+      appBar: AppBar(title: const Text("標準電卓"), backgroundColor: Colors.blueGrey[800]),
       body: Column(
         children: [
-          Expanded(flex: 2, child: Container(alignment: Alignment.bottomRight, padding: const EdgeInsets.all(24), child: Text(_output, style: const TextStyle(fontSize: 70, fontWeight: FontWeight.w300)))),
-          Expanded(flex: 5, child: Container(padding: const EdgeInsets.all(8), child: Column(children: grid.map((row) => Expanded(child: Row(children: row.map((char) => Expanded(child: Padding(padding: const EdgeInsets.all(4), child: _buildCalcButton(char)))).toList()))).toList()))),
+          // 表示エリア（写真のような構成）
+          Expanded(
+            flex: 2,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(_expression, style: const TextStyle(fontSize: 48, color: Colors.black87)),
+                  const SizedBox(height: 10),
+                  Text(_result, style: TextStyle(fontSize: 32, color: Colors.blueGrey[400])),
+                ],
+              ),
+            ),
+          ),
+          // ボタンエリア（正方形のグリッド）
+          Expanded(
+            flex: 5,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              color: Colors.grey[100],
+              child: GridView.builder(
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  childAspectRatio: 1.0, // ここで正方形に固定
+                ),
+                itemCount: 20,
+                itemBuilder: (context, index) {
+                  int r = index ~/ 4;
+                  int c = index % 4;
+                  String label = grid[r][c];
+                  return _buildSquareButton(label);
+                },
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildCalcButton(String label) {
-    bool isOperator = ["÷", "×", "-", "+", "="].contains(label);
-    // クリア系（C, BS, %）を寒色系に設定
-    bool isClearAction = ["C", "BS", "%"].contains(label);
+  Widget _buildSquareButton(String label) {
+    bool isOp = _isOperator(label) || label == "=";
+    bool isAction = ["C", "BS"].contains(label);
 
-    return ElevatedButton(
-      onPressed: () => _btnPressed(label),
-      style: ElevatedButton.styleFrom(
-        // クリア系は水色・青系、演算子は薄オレンジ、その他は白
-        backgroundColor: isClearAction ? Colors.cyan[100] : (isOperator ? Colors.orange[100] : Colors.white),
-        foregroundColor: isClearAction ? Colors.cyan[900] : (isOperator ? Colors.orange[900] : Colors.black87),
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    return Padding(
+      padding: const EdgeInsets.all(4),
+      child: ElevatedButton(
+        onPressed: () => _btnPressed(label),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isAction ? Colors.cyan[100] : (isOp ? Colors.orange[100] : Colors.white),
+          foregroundColor: isAction ? Colors.cyan[900] : (isOp ? Colors.orange[900] : Colors.black87),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          elevation: 1,
+        ),
+        child: Text(label, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
       ),
-      child: Text(label, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
     );
   }
 }
