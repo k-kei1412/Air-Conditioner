@@ -146,15 +146,12 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
         backgroundColor: Colors.blue[600],
       ),
       body: Row(children: [
-        // 左側固定パネル
         Container(width: 260, color: Colors.blueGrey[50], child: _buildLeftPanel()),
-        
-        // 右側計算エリア
         Expanded(
           child: isPortrait 
             ? Column(
                 children: [
-                  _buildPortraitSelector(), // 縦向き時の切り替え
+                  _buildPortraitSelector(),
                   Expanded(child: _buildPriceColumn(selectedIndex)),
                 ],
               )
@@ -164,7 +161,6 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
     );
   }
 
-  // 縦向き専用セレクター
   Widget _buildPortraitSelector() {
     return Container(
       color: Colors.white,
@@ -228,21 +224,77 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
   Widget _buildPriceColumn(int index) {
     bool active = (selectedIndex == index);
     double total = allData[index].fold(0.0, (sum, item) => sum + (item['price'] as double));
+    
     return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => setState(() => selectedIndex = index), // どこを触ってもその列を選択
+      behavior: HitTestBehavior.opaque, // カラム内の透明な部分のタップも拾う
+      onTapDown: (_) => setState(() => selectedIndex = index), // 触れた瞬間に選択
       child: Container(
         margin: const EdgeInsets.all(5),
-        decoration: BoxDecoration(border: Border.all(color: active ? Colors.blue[600]! : Colors.grey[300]!, width: active ? 4 : 1), borderRadius: BorderRadius.circular(12), color: Colors.white),
+        decoration: BoxDecoration(
+          border: Border.all(color: active ? Colors.blue[600]! : Colors.grey[300]!, width: active ? 4 : 1), 
+          borderRadius: BorderRadius.circular(12), 
+          color: Colors.white
+        ),
         child: Column(children: [
-          Container(height: 50, color: active ? Colors.blue[600] : Colors.grey[400], padding: const EdgeInsets.symmetric(horizontal: 10), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Expanded(child: Text(modelNames[index], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18), overflow: TextOverflow.ellipsis)),
-            IconButton(icon: const Icon(Icons.delete_forever, color: Colors.white, size: 22), onPressed: () => setState(() { allData[index] = []; _saveData(); })),
-          ])),
-          Expanded(child: ReorderableListView(padding: EdgeInsets.zero, onReorder: (oldIdx, newIdx) { setState(() { if (newIdx > oldIdx) newIdx -= 1; final item = allData[index].removeAt(oldIdx); allData[index].insert(newIdx, item); _saveData(); }); }, children: [
-            for (int i = 0; i < allData[index].length; i++) Container(key: ValueKey(allData[index][i]['id']), decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey[100]!))), child: ListTile(dense: true, leading: const Icon(Icons.drag_handle), title: Text(allData[index][i]['name'], style: const TextStyle(fontSize: 14)), subtitle: Text("¥${formatter.format(allData[index][i]['price'])}", style: TextStyle(color: allData[index][i]['price'] < 0 ? Colors.red[700] : Colors.black, fontWeight: FontWeight.w900, fontSize: 22)), onTap: () => _showEditDialog(index, i), trailing: IconButton(icon: const Icon(Icons.close), onPressed: () { setState(() { allData[index].removeAt(i); _saveData(); }); }))),
-          ])),
-          Container(padding: const EdgeInsets.all(15), width: double.infinity, decoration: BoxDecoration(color: Colors.blueGrey[50], borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8))), child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [ const Text('合計（税込）', style: TextStyle(fontSize: 12, color: Colors.blueGrey)), Text("¥${formatter.format(total)}", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.red[700]))])),
+          // 機種名ヘッダー
+          InkWell(
+            onLongPress: () => _editModelName(index), 
+            onTap: () => setState(() => selectedIndex = index), 
+            child: Container(
+              height: 50, color: active ? Colors.blue[600] : Colors.grey[400], 
+              padding: const EdgeInsets.symmetric(horizontal: 10), 
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Expanded(child: Text(modelNames[index], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18), overflow: TextOverflow.ellipsis)),
+                IconButton(icon: const Icon(Icons.delete_forever, color: Colors.white, size: 22), onPressed: () => setState(() { allData[index] = []; _saveData(); })),
+              ])
+            )
+          ),
+          // アイテムリスト
+          Expanded(
+            child: Stack(
+              children: [
+                // リスト自体の背面にもタップ判定を置く
+                GestureDetector(onTapDown: (_) => setState(() => selectedIndex = index)),
+                ReorderableListView(
+                  padding: EdgeInsets.zero, 
+                  onReorder: (oldIdx, newIdx) { 
+                    setState(() { if (newIdx > oldIdx) newIdx -= 1; final item = allData[index].removeAt(oldIdx); allData[index].insert(newIdx, item); _saveData(); }); 
+                  }, 
+                  children: [
+                    for (int i = 0; i < allData[index].length; i++) 
+                      Container(
+                        key: ValueKey(allData[index][i]['id']), 
+                        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey[100]!))), 
+                        child: ListTile(
+                          dense: true, 
+                          leading: const Icon(Icons.drag_handle), 
+                          title: Text(allData[index][i]['name'], style: const TextStyle(fontSize: 14)), 
+                          subtitle: Text("¥${formatter.format(allData[index][i]['price'])}", style: TextStyle(color: allData[index][i]['price'] < 0 ? Colors.red[700] : Colors.black, fontWeight: FontWeight.w900, fontSize: 22)), 
+                          onTap: () {
+                            setState(() => selectedIndex = index); // 編集ダイアログ前に選択状態にする
+                            _showEditDialog(index, i);
+                          }, 
+                          trailing: IconButton(icon: const Icon(Icons.close), onPressed: () { setState(() { allData[index].removeAt(i); _saveData(); }); })
+                        )
+                      ),
+                  ]
+                ),
+              ],
+            )
+          ),
+          // 合計金額エリア
+          GestureDetector(
+            onTapDown: (_) => setState(() => selectedIndex = index),
+            child: Container(
+              padding: const EdgeInsets.all(15), 
+              width: double.infinity, 
+              decoration: BoxDecoration(color: Colors.blueGrey[50], borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8))), 
+              child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [ 
+                const Text('合計（税込）', style: TextStyle(fontSize: 12, color: Colors.blueGrey)), 
+                Text("¥${formatter.format(total)}", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.red[700]))
+              ])
+            ),
+          ),
         ]),
       ),
     );
