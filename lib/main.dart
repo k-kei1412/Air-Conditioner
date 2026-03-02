@@ -216,7 +216,7 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
 }
 
 // ---------------------------------------------------------
-// 画面2: シンプル標準電卓 (iPad対応・リアルタイム計算版)
+// 画面2: 標準電卓 (ダークモード・高感度・iPad対応版)
 // ---------------------------------------------------------
 class SimpleCalcPage extends StatefulWidget {
   const SimpleCalcPage({super.key});
@@ -236,7 +236,9 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
       } else if (val == "BS") {
         if (_expression.isNotEmpty) _expression = _expression.substring(0, _expression.length - 1);
       } else if (val == "=") {
-        if (_result != "エラー" && _result != "...") _expression = _result.replaceAll(",", "");
+        if (_result != "エラー" && _result != "...") {
+          _expression = _result.replaceAll(",", "");
+        }
       } else {
         if (_isOperator(val) && _expression.isNotEmpty && _isOperator(_expression[_expression.length - 1])) {
           _expression = _expression.substring(0, _expression.length - 1) + val;
@@ -262,7 +264,9 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
         if (calcResult == calcResult.toInt()) {
           _result = formatter.format(calcResult.toInt());
         } else {
-          _result = calcResult.toStringAsFixed(2);
+          // 小数点第3位まで表示
+          _result = formatter.format(calcResult);
+          if (_result == "0" && calcResult != 0) _result = calcResult.toStringAsFixed(2);
         }
       }
     } catch (e) {
@@ -274,10 +278,8 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
     String cleanExp = exp;
     if (exp.isEmpty) return 0;
     if ("+-*/".contains(exp[exp.length - 1])) cleanExp = exp.substring(0, exp.length - 1);
-    
     List<String> parts = _tokenize(cleanExp);
     if (parts.isEmpty) return 0;
-    
     for (int i = 0; i < parts.length; i++) {
       if (parts[i] == "*" || parts[i] == "/") {
         double left = double.tryParse(parts[i-1]) ?? 0;
@@ -312,75 +314,101 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
     ];
 
     return Scaffold(
-      backgroundColor: Colors.blueGrey[50], // 少し背景に色をつけて電卓を際立たせる
-      appBar: AppBar(title: const Text("標準電卓"), backgroundColor: Colors.blueGrey[800]),
+      backgroundColor: Colors.black, // 全体背景を黒に
+      appBar: AppBar(
+        title: const Text("標準電卓", style: TextStyle(color: Colors.white)), 
+        backgroundColor: Colors.black,
+        elevation: 0,
+      ),
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 500), // iPadでも広がりすぎない
-          child: Container(
-            color: Colors.white,
-            child: Column(
-              children: [
-                // 表示エリア
-                Expanded(
-                  flex: 3,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(32),
-                    alignment: Alignment.bottomRight,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(_expression, style: const TextStyle(fontSize: 40, color: Colors.black54), maxLines: 2),
-                        const SizedBox(height: 8),
-                        Text(_result, style: TextStyle(fontSize: 60, fontWeight: FontWeight.bold, color: Colors.blueGrey[900])),
-                      ],
-                    ),
-                  ),
-                ),
-                // ボタンエリア
-                Expanded(
-                  flex: 7,
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: GridView.builder(
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 4,
-                        childAspectRatio: 1.1, // 正方形に近い形を維持
-                        mainAxisSpacing: 8,
-                        crossAxisSpacing: 8,
+          constraints: const BoxConstraints(maxWidth: 550),
+          child: Column(
+            children: [
+              // 表示エリア
+              Expanded(
+                flex: 3,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                  alignment: Alignment.bottomRight,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      // 計算式（白で見やすく）
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        reverse: true,
+                        child: Text(_expression, 
+                          style: const TextStyle(fontSize: 44, color: Colors.white, fontWeight: FontWeight.w300)),
                       ),
-                      itemCount: 20,
-                      itemBuilder: (context, index) {
-                        String label = grid[index ~/ 4][index % 4];
-                        return _buildSquareButton(label);
-                      },
-                    ),
+                      const SizedBox(height: 12),
+                      // リアルタイム結果（青系で見やすく）
+                      Text(_result, 
+                        style: TextStyle(fontSize: 64, fontWeight: FontWeight.bold, color: Colors.blueAccent[100])),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+              // ボタンエリア
+              Expanded(
+                flex: 7,
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: GridView.builder(
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 4,
+                      childAspectRatio: 1.1, 
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                    ),
+                    itemCount: 20,
+                    itemBuilder: (context, index) {
+                      String label = grid[index ~/ 4][index % 4];
+                      return _buildHighResponseButton(label);
+                    },
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildSquareButton(String label) {
+  // 感度を上げたカスタムボタン
+  Widget _buildHighResponseButton(String label) {
     bool isOp = _isOperator(label) || label == "=";
     bool isAction = ["C", "BS"].contains(label);
 
-    return ElevatedButton(
-      onPressed: () => _btnPressed(label),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: isAction ? Colors.cyan[100] : (isOp ? Colors.orange[100] : Colors.grey[50]),
-        foregroundColor: isAction ? Colors.cyan[900] : (isOp ? Colors.orange[900] : Colors.black87),
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), // 少し丸みを持たせてモダンに
+    Color bgColor = Colors.grey[900]!; // 基本は濃いグレー
+    Color textColor = Colors.white;
+
+    if (isAction) {
+      bgColor = Colors.blueGrey[800]!; // クリア系は少し明るい寒色
+      textColor = Colors.cyanAccent;
+    } else if (isOp) {
+      bgColor = Colors.orange[800]!; // 演算子はオレンジ
+    }
+
+    return GestureDetector(
+      onTapDown: (_) => _btnPressed(label), // 指が触れた瞬間に反応
+      child: Container(
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2)),
+          ],
+        ),
+        child: Center(
+          child: Text(label, 
+            style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: textColor)),
+        ),
       ),
-      child: Text(label, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
     );
   }
 }
