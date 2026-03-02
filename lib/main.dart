@@ -67,7 +67,6 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
     setState(() {
       double val = fixedPrice ?? (double.tryParse(currentInput) ?? 0);
       if (isMinus || (fixedPrice == null && isNegative)) val = -val.abs();
-      // 一意のIDを付与して並び替えのバグを防ぐ
       allData[selectedIndex].add({
         "id": DateTime.now().millisecondsSinceEpoch.toString() + name,
         "name": name, 
@@ -125,7 +124,6 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        // 電卓を消すボタン（メニューアイコン）を削除しました
         title: const Text('エアコン用電卓-AirSave', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.blue[600],
         actions: isPortrait ? [
@@ -136,7 +134,6 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
       ),
       body: Row(
         children: [
-          // 電卓パネルを完全に固定（非表示にする機能を削除）
           Container(width: 260, color: Colors.blueGrey[50], child: _buildLeftPanel()),
           Expanded(child: isPortrait ? _buildPriceColumn(selectedIndex) : Row(children: List.generate(3, (i) => Expanded(child: _buildPriceColumn(i))))),
         ],
@@ -154,13 +151,16 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
         ),
         _buildNumPad(),
         const Divider(height: 20),
+        // ★ メニューボタンエリア
         Expanded(child: ListView(padding: const EdgeInsets.symmetric(horizontal: 10), children: [
           _itemBtn("エアコン本体", Colors.blue[700]!, () => _addItem("本体")),
           _itemBtn("標準工事 (18,150円)", Colors.green[700]!, () => _addItem("標準工事", fixedPrice: 18150)),
-          _itemBtn("室外機取り付けメニュー", Colors.orange[700]!, () => _showMenu("室外機取り付け", {"2F→1F高所": 7700, "3F→1F高所": 12000, "施策適用": -6600})),
-          _itemBtn("配管カバーメニュー", Colors.cyan[700]!, () => _showMenu("配管カバー", {"施策適用": -5500, "カバーなし": -5500, "再利用": 8800})),
+          _itemBtn("室外機取り付けメニュー", Colors.orange[700]!, () => _showMenu("室外機取り付け", {"2F→1F高所": 14300, 3F→1F高所": 25300})),
+          _itemBtn("屋外用配管カバーメニュー", Colors.cyan[700]!, () => _showMenu("屋外用配管カバー", {"屋外用配管カバー": 5500, "屋外用配管カバー2F→1": 15400, "屋外用配管カバー3F→1": 20900, "施策適用": -5500,"標準再利用": 3300, "2F→1再利用": 6600, "3F→1再利用": 9900})),
           _itemBtn("室外機階段上げ", Colors.deepPurple[600]!, () => _showMenu("室外機階段上げ", {"内階段上げ": 1100, "内階段上げ(4.0kw以上)": 2200, "内階段上げ(加湿喚起タイプ)": 4400, "外階段上げ(感動エアコン)": 1100})),
-          _itemBtn("特殊工事", Colors.grey[700]!, () => _addItem("特殊工事")),
+          // ★ 新しく追加した欄（追加工事・特殊対応メニュー）
+          _itemBtn("取り外し方法（※買い替えの時のみ）", Colors.purple[600]!, () => _showMenu("取り外し方法", {"標準取外し": 6600, "取外し2F→1": 9900, "取外し3F→1": 14300, "施策適用": -6600})),          
+          _itemBtn("追加工事費", Colors.grey[700]!, () => _addItem("追加工事費")),
           _itemBtn("リサイクル (4,070円)", Colors.teal[600]!, () => _addItem("リサイクル", fixedPrice: 4070)),
           _itemBtn("値引き", Colors.red[600]!, () => _addItem("値引き", isMinus: true)),
           const SizedBox(height: 20),
@@ -199,10 +199,10 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
                 IconButton(icon: const Icon(Icons.delete_forever, color: Colors.white, size: 22), onPressed: () => setState(() { allData[index] = []; _saveData(); })),
               ])),
           ),
-          // リスト部分：並び替えと個別削除を両立
           Expanded(
             child: ReorderableListView(
               padding: EdgeInsets.zero,
+              buildDefaultDragHandles: false,
               onReorder: (oldIdx, newIdx) {
                 setState(() {
                   if (newIdx > oldIdx) newIdx -= 1;
@@ -213,24 +213,48 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
               },
               children: [
                 for (int i = 0; i < allData[index].length; i++)
-                  ListTile(
+                  Container(
                     key: ValueKey(allData[index][i]['id'] ?? i.toString()),
-                    dense: true,
-                    title: Text(allData[index][i]['name'], style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                    subtitle: Text("¥${formatter.format(allData[index][i]['price'])}", 
-                      style: TextStyle(
-                        color: allData[index][i]['price'] < 0 ? Colors.red[700] : Colors.black,
-                        fontWeight: FontWeight.w900, fontSize: 22, 
-                      )),
-                    // 右側の×ボタンでその行だけ消す
-                    trailing: IconButton(
-                      icon: const Icon(Icons.close, color: Colors.red),
-                      onPressed: () {
-                        setState(() {
-                          allData[index].removeAt(i);
-                          _saveData();
-                        });
-                      },
+                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey[100]!))),
+                    child: Row(
+                      children: [
+                        ReorderableDragHandle(
+                          index: i,
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 15),
+                            child: Icon(Icons.drag_handle, color: Colors.grey, size: 20),
+                          ),
+                        ),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => _showEditDialog(index, i),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(allData[index][i]['name'], style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
+                                  Text("¥${formatter.format(allData[index][i]['price'])}", 
+                                    style: TextStyle(
+                                      color: allData[index][i]['price'] < 0 ? Colors.red[700] : Colors.black,
+                                      fontWeight: FontWeight.w900, 
+                                      fontSize: 22, 
+                                    )),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Colors.grey, size: 20),
+                          onPressed: () {
+                            setState(() {
+                              allData[index].removeAt(i);
+                              _saveData();
+                            });
+                          },
+                        ),
+                      ],
                     ),
                   ),
               ],
@@ -242,6 +266,55 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
               Text("¥${formatter.format(total)}", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.red[700])),
             ])),
         ]),
+      ),
+    );
+  }
+
+  void _showEditDialog(int modelIdx, int itemIdx) {
+    TextEditingController controller = TextEditingController(text: allData[modelIdx][itemIdx]['price'].toInt().abs().toString());
+    bool isNeg = allData[modelIdx][itemIdx]['price'] < 0;
+    
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('${allData[modelIdx][itemIdx]['name']} の修正'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: () => setDialogState(() => isNeg = !isNeg),
+                    child: Text(isNeg ? "マイナス" : "プラス", style: TextStyle(color: isNeg ? Colors.red : Colors.blue)),
+                  ),
+                  Expanded(
+                    child: TextField(
+                      controller: controller, 
+                      keyboardType: TextInputType.number, 
+                      autofocus: true,
+                      decoration: const InputDecoration(suffixText: "円", hintText: "金額"),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('キャンセル')),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  double p = double.tryParse(controller.text) ?? 0;
+                  allData[modelIdx][itemIdx]['price'] = isNeg ? -p.abs() : p.abs();
+                  _saveData();
+                });
+                Navigator.pop(context);
+              },
+              child: const Text('保存'),
+            ),
+          ],
+        ),
       ),
     );
   }
