@@ -216,7 +216,7 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
 }
 
 // ---------------------------------------------------------
-// 画面2: 標準電卓 (サイズ最適化・白ベース・横向き対応版)
+// 画面2: 標準電卓 (サイズ圧縮・目に優しいグレー・横向き完結版)
 // ---------------------------------------------------------
 class SimpleCalcPage extends StatefulWidget {
   const SimpleCalcPage({super.key});
@@ -304,23 +304,22 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
     bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.grey[100], // 目に優しい薄いグレーに変更
       appBar: AppBar(
-        title: const Text("標準電卓", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text("タクポチ", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.blueGrey[800],
         elevation: 0,
       ),
       body: Center(
         child: ConstrainedBox(
-          // ここで最大幅を 450 に制限することで、横向きでも広がりすぎないようにしました
-          constraints: const BoxConstraints(maxWidth: 450),
+          constraints: const BoxConstraints(maxWidth: 480), // 縦横共通で少しコンパクトに
           child: Column(
             children: [
-              // 表示エリア
+              // 1. 表示エリア（横向きは高さを大幅に圧縮）
               Expanded(
-                flex: isLandscape ? 3 : 4,
+                flex: isLandscape ? 2 : 3, // 横向きは flex 2 で高さを抑える
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                   alignment: Alignment.bottomRight,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -331,7 +330,7 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
                         reverse: true,
                         child: Text(_expression, style: const TextStyle(fontSize: 32, color: Colors.black54)),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 5),
                       FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(_result, style: TextStyle(fontSize: 70, fontWeight: FontWeight.bold, color: Colors.blueGrey[900])),
@@ -340,12 +339,12 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
                   ),
                 ),
               ),
-              // ボタンエリア
+              // 2. ボタンエリア（横向きは間隔を詰める）
               Expanded(
-                flex: isLandscape ? 7 : 6,
+                flex: isLandscape ? 8 : 7,
                 child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: _buildGrid(),
+                  padding: const EdgeInsets.all(10.0),
+                  child: _buildGrid(isLandscape),
                 ),
               ),
             ],
@@ -355,7 +354,7 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
     );
   }
 
-  Widget _buildGrid() {
+  Widget _buildGrid(bool isLandscape) {
     final List<List<String>> grid = [
       ["C", "BS", "%", "÷"],
       ["7", "8", "9", "×"],
@@ -366,10 +365,11 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
 
     return GridView.builder(
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 4,
-        childAspectRatio: 1.15, // 少し横長にしてボタンの押しやすさを確保
-        mainAxisSpacing: 10,
+        // 横向きは少し横長（1.4）にすることで、潰れて見えるのを防ぐ
+        childAspectRatio: isLandscape ? 1.4 : 1.15, 
+        mainAxisSpacing: isLandscape ? 6 : 10, // 横向きは上下間隔を詰めて高さを稼ぐ
         crossAxisSpacing: 10,
       ),
       itemCount: 20,
@@ -384,8 +384,8 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
     bool isOp = _isOperator(label) || label == "=";
     bool isAction = ["C", "BS", "%"].contains(label);
 
-    // 見積モードの色に合わせた配色
-    Color bgColor = Colors.grey[100]!;
+    // 落ち着いた白ベースの配色
+    Color bgColor = Colors.white;
     Color textColor = Colors.black87;
 
     if (isAction) {
@@ -403,12 +403,13 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[200]!),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 2, offset: const Offset(0, 2)),
+            BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 2, offset: const Offset(0, 2)),
           ],
         ),
         child: Center(
-          child: Text(label, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          child: Text(label, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
         ),
       ),
     );
