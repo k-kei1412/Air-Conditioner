@@ -147,8 +147,44 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
       ),
       body: Row(children: [
         Container(width: 260, color: Colors.blueGrey[50], child: _buildLeftPanel()),
-        Expanded(child: isPortrait ? _buildPriceColumn(selectedIndex) : Row(children: List.generate(3, (i) => Expanded(child: _buildPriceColumn(i))))),
+        Expanded(
+          child: isPortrait 
+            ? Column(
+                children: [
+                  _buildPortraitSelector(), // 縦向き時の切り替えインジケーター
+                  Expanded(child: _buildPriceColumn(selectedIndex)),
+                ],
+              )
+            : Row(children: List.generate(3, (i) => Expanded(child: _buildPriceColumn(i)))),
+        ),
       ]),
+    );
+  }
+
+  // 縦向き専用の切り替えボタン
+  Widget _buildPortraitSelector() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left, size: 40, color: Colors.blue),
+            onPressed: () => setState(() => selectedIndex = (selectedIndex > 0) ? selectedIndex - 1 : 2),
+          ),
+          const SizedBox(width: 30),
+          Text(
+            "${selectedIndex + 1} / 3",
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+          ),
+          const SizedBox(width: 30),
+          IconButton(
+            icon: const Icon(Icons.chevron_right, size: 40, color: Colors.blue),
+            onPressed: () => setState(() => selectedIndex = (selectedIndex < 2) ? selectedIndex + 1 : 0),
+          ),
+        ],
+      ),
     );
   }
 
@@ -190,7 +226,7 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
   }
 
   Widget _buildPriceColumn(int index) {
-    bool active = selectedIndex == index;
+    bool active = (selectedIndex == index);
     double total = allData[index].fold(0.0, (sum, item) => sum + (item['price'] as double));
     return Container(
       margin: const EdgeInsets.all(5),
@@ -216,7 +252,7 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
 }
 
 // ---------------------------------------------------------
-// 画面2: 標準電卓 (キーボード拡大・下部配置・横向き最適化版)
+// 画面2: 標準電卓 (キーボード拡大・目に優しいグレー版)
 // ---------------------------------------------------------
 class SimpleCalcPage extends StatefulWidget {
   const SimpleCalcPage({super.key});
@@ -309,15 +345,14 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
         title: const Text("たくぽち", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.blueGrey[800],
         elevation: 0,
-        toolbarHeight: isLandscape ? 40 : 56, // 横向きはバーも少し細くしてスペースを確保
+        toolbarHeight: isLandscape ? 40 : 56,
       ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 500), 
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.end, // 全体を下に寄せる
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              // 1. 表示エリア（さらに高さを削ってキーボードに譲る）
               Expanded(
                 flex: isLandscape ? 2 : 3,
                 child: Container(
@@ -340,7 +375,6 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
                   ),
                 ),
               ),
-              // 2. ボタンエリア（横向き時に大きく表示）
               Padding(
                 padding: EdgeInsets.fromLTRB(12, 0, 12, isLandscape ? 10 : 20),
                 child: _buildGrid(isLandscape),
@@ -362,11 +396,10 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
     ];
 
     return GridView.builder(
-      shrinkWrap: true, // 高さを中身に合わせる
+      shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 4,
-        // 横向きは1.6にすることで、ボタンをさらに縦に大きく
         childAspectRatio: isLandscape ? 1.6 : 1.15, 
         mainAxisSpacing: 8,
         crossAxisSpacing: 10,
@@ -382,10 +415,8 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
   Widget _buildTouchButton(String label) {
     bool isOp = _isOperator(label) || label == "=";
     bool isAction = ["C", "BS", "%"].contains(label);
-
     Color bgColor = Colors.white;
     Color textColor = Colors.black87;
-
     if (isAction) {
       bgColor = Colors.cyan[50]!;
       textColor = Colors.cyan[900]!;
@@ -393,7 +424,6 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
       bgColor = Colors.blue[600]!;
       textColor = Colors.white;
     }
-
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTapDown: (_) => _btnPressed(label),
