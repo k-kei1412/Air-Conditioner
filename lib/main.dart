@@ -216,7 +216,7 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
 }
 
 // ---------------------------------------------------------
-// 画面2: 標準電卓 (縦横専用レイアウト・高感度版)
+// 画面2: 標準電卓 (横向き履歴・見積カラー統合版)
 // ---------------------------------------------------------
 class SimpleCalcPage extends StatefulWidget {
   const SimpleCalcPage({super.key});
@@ -230,6 +230,7 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
   List<String> _history = []; // 計算履歴用
   final formatter = NumberFormat("#,###.###");
 
+  // 感度を最大にするための処理
   void _btnPressed(String val) {
     setState(() {
       if (val == "C") {
@@ -238,11 +239,15 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
         if (_expression.isNotEmpty) _expression = _expression.substring(0, _expression.length - 1);
       } else if (val == "=") {
         if (_result != "エラー" && _result != "...") {
-          _history.insert(0, "$_expression = $_result"); // 履歴に追加
-          if (_history.length > 20) _history.removeLast();
+          // 履歴に数式を追加（例: "100 + 200 = 300"）
+          _history.insert(0, "$_expression = $_result"); 
+          if (_history.length > 20) _history.removeLast(); // 20件まで保存
+          
+          // 結果を入力欄にセットして、次の計算に使えるようにする
           _expression = _result.replaceAll(",", "");
         }
       } else {
+        // 演算子の連続入力を防ぐ
         if (_isOperator(val) && _expression.isNotEmpty && _isOperator(_expression[_expression.length - 1])) {
           _expression = _expression.substring(0, _expression.length - 1) + val;
         } else {
@@ -264,7 +269,8 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
       if (calcResult.isInfinite || calcResult.isNaN) {
         _result = "エラー";
       } else {
-        if (calcResult.abs() > 999999999) {
+        // 桁数が多い場合の処理
+        if (calcResult.abs() > 999999999999) {
           _result = calcResult.toStringAsExponential(2);
         } else if (calcResult == calcResult.toInt()) {
           _result = NumberFormat("#,###").format(calcResult.toInt());
@@ -309,71 +315,79 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.black, // 背景を黒に
       body: SafeArea(
         child: OrientationBuilder(
           builder: (context, orientation) {
-            return orientation == Orientation.portrait 
-                ? _buildPortraitLayout() 
-                : _buildLandscapeLayout();
+            // 画面の向きに合わせてレイアウトを切り替え
+            if (orientation == Orientation.portrait) {
+              return _buildPortraitLayout(); // 縦向き
+            } else {
+              return _buildLandscapeLayout(); // 横向き
+            }
           },
         ),
       ),
     );
   }
 
-  // 【縦向き】中央配置の電卓
+  // 【縦向きレイアウト】（これまでと同じ、中央に電卓）
   Widget _buildPortraitLayout() {
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 550),
+        constraints: const BoxConstraints(maxWidth: 550), // iPadでも広がりすぎないように制限
         child: Column(
           children: [
-            _buildDisplayArea(4),
-            _buildButtonArea(6, 1.1),
+            _buildDisplayArea(flex: 4), // 表示エリア
+            _buildButtonGrid(flex: 6, aspectRatio: 1.1, spacing: 15), // ボタン
           ],
         ),
       ),
     );
   }
 
-  // 【横向き】左：履歴、右：電卓の2カラム構成
+  // 【横向きレイアウト】（写真image_1.pngを参考にした2カラム構成）
   Widget _buildLandscapeLayout() {
     return Row(
       children: [
-        // 左側：計算履歴
+        // 左カラム：履歴エリア
         Expanded(
-          flex: 4,
+          flex: 4, // 画面幅の4割
           child: Container(
-            decoration: BoxDecoration(border: Border(right: BorderSide(color: Colors.grey[900]!, width: 2))),
+            decoration: BoxDecoration(
+              border: Border(right: BorderSide(color: Colors.grey[900]!, width: 2)), // 境界線
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Padding(
                   padding: EdgeInsets.all(20),
-                  child: Text("履歴", style: TextStyle(color: Colors.white70, fontSize: 24, fontWeight: FontWeight.bold)),
+                  child: Text("計算履歴", style: TextStyle(color: Colors.white70, fontSize: 24, fontWeight: FontWeight.bold)),
                 ),
                 Expanded(
                   child: ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     itemCount: _history.length,
-                    itemBuilder: (context, i) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(_history[i], style: const TextStyle(color: Colors.white38, fontSize: 18)),
-                    ),
+                    itemBuilder: (context, index) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(_history[index], 
+                          style: const TextStyle(color: Colors.white38, fontSize: 18, fontWeight: FontWeight.w300)),
+                      );
+                    },
                   ),
                 ),
               ],
             ),
           ),
         ),
-        // 右側：電卓本体
+        // 右カラム：電卓エリア
         Expanded(
-          flex: 6,
+          flex: 6, // 画面幅の6割
           child: Column(
             children: [
-              _buildDisplayArea(3),
-              _buildButtonArea(7, 1.5), // 横向きはボタンを少し平たくして収まりを良くする
+              _buildDisplayArea(flex: 3), // 横向きは表示エリアを少し狭く
+              _buildButtonGrid(flex: 7, aspectRatio: 1.4, spacing: 10), // ボタンを平たく
             ],
           ),
         ),
@@ -381,26 +395,30 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
     );
   }
 
-  // 表示エリアの共通部品
-  Widget _buildDisplayArea(int flex) {
+  // 計算表示エリアの共通部品
+  Widget _buildDisplayArea({required int flex}) {
     return Expanded(
       flex: flex,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
         alignment: Alignment.bottomRight,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.end,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
+            // 計算式（白で見やすく）
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               reverse: true,
-              child: Text(_expression, style: const TextStyle(fontSize: 40, color: Colors.white70, fontWeight: FontWeight.w300)),
+              child: Text(_expression, 
+                style: const TextStyle(fontSize: 50, color: Colors.white, fontWeight: FontWeight.w300, letterSpacing: 2)),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
+            // リアルタイム結果（青系で見やすく）
             FittedBox(
               fit: BoxFit.scaleDown,
-              child: Text(_result, style: const TextStyle(fontSize: 80, fontWeight: FontWeight.bold, color: Color(0xFF40E0D0))),
+              child: Text(_result, 
+                style: const TextStyle(fontSize: 100, fontWeight: FontWeight.bold, color: Color(0xFF40E0D0))),
             ),
           ],
         ),
@@ -409,7 +427,7 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
   }
 
   // ボタンエリアの共通部品
-  Widget _buildButtonArea(int flex, double aspectRatio) {
+  Widget _buildButtonGrid({required int flex, required double aspectRatio, required double spacing}) {
     final List<List<String>> grid = [
       ["C", "BS", "%", "÷"],
       ["7", "8", "9", "×"],
@@ -420,36 +438,54 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
     return Expanded(
       flex: flex,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(12.0),
         child: GridView.builder(
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 4,
-            childAspectRatio: aspectRatio,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
+            childAspectRatio: aspectRatio, 
+            mainAxisSpacing: spacing,
+            crossAxisSpacing: spacing,
           ),
           itemCount: 20,
-          itemBuilder: (context, index) => _buildTouchButton(grid[index ~/ 4][index % 4]),
+          itemBuilder: (context, index) {
+            return _buildTouchButton(grid[index ~/ 4][index % 4]);
+          },
         ),
       ),
     );
   }
 
+  // 高感度＆見積もりカラーのカスタムボタン
   Widget _buildTouchButton(String label) {
     bool isOp = _isOperator(label) || label == "=";
     bool isAction = ["C", "BS"].contains(label);
-    Color bgColor = const Color(0xFF2C2C2E);
-    if (isAction) bgColor = const Color(0xFF636366);
-    else if (isOp) bgColor = const Color(0xFFFF9F0A);
+
+    // 見積もりモードに合わせた色設計
+    Color bgColor = const Color(0xFF2C2C2E); // 基本はApple風ダークグレー
+    Color textColor = Colors.white;
+
+    if (isAction) {
+      bgColor = const Color(0xFF636366); // クリア系は少し明るいグレー（写真image_1.png参考）
+      textColor = Colors.cyanAccent[100]!; // 文字色は見積モードのCと同じ水色系
+    } else if (isOp) {
+      bgColor = const Color(0xFFFF9F0A); // 演算子はオレンジ（写真image_1.png参考）
+    }
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTapDown: (_) => _btnPressed(label),
+      onTapDown: (_) => _btnPressed(label), // 指が触れた瞬間に反応
       child: Container(
-        decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2)),
+          ],
+        ),
         child: Center(
-          child: Text(label, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white)),
+          child: Text(label, 
+            style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: textColor)),
         ),
       ),
     );
