@@ -155,7 +155,7 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
         Expanded(child: ListView(padding: const EdgeInsets.symmetric(horizontal: 10), children: [
           _itemBtn("エアコン本体", Colors.blue[700]!, () => _addItem("本体")),
           _itemBtn("標準工事 (18,150円)", Colors.green[700]!, () => _addItem("標準工事", fixedPrice: 18150)),
-          _itemBtn("室外機取り付けメニュー", Colors.orange[700]!, () => _showMenu("室外機取り付け", {"2F→1F高所": 14300, 3F→1F高所": 25300})),
+          _itemBtn("室外機取り付けメニュー", Colors.orange[700]!, () => _showMenu("室外機取り付け", {"2F→1F高所": 14300, "3F→1F高所": 25300})),
           _itemBtn("屋外用配管カバーメニュー", Colors.cyan[700]!, () => _showMenu("屋外用配管カバー", {"屋外用配管カバー": 5500, "屋外用配管カバー2F→1": 15400, "屋外用配管カバー3F→1": 20900, "施策適用": -5500,"標準再利用": 3300, "2F→1再利用": 6600, "3F→1再利用": 9900})),
           _itemBtn("室外機階段上げ", Colors.deepPurple[600]!, () => _showMenu("室外機階段上げ", {"内階段上げ": 1100, "内階段上げ(4.0kw以上)": 2200, "内階段上げ(加湿喚起タイプ)": 4400, "外階段上げ(感動エアコン)": 1100})),
           // ★ 新しく追加した欄（追加工事・特殊対応メニュー）
