@@ -216,7 +216,7 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
 }
 
 // ---------------------------------------------------------
-// 画面2: 標準電卓 (ダークモード・高感度・iPad対応版)
+// 画面2: 標準電卓 (縦横専用レイアウト・高感度版)
 // ---------------------------------------------------------
 class SimpleCalcPage extends StatefulWidget {
   const SimpleCalcPage({super.key});
@@ -227,7 +227,8 @@ class SimpleCalcPage extends StatefulWidget {
 class _SimpleCalcPageState extends State<SimpleCalcPage> {
   String _expression = ""; 
   String _result = "0";    
-  final formatter = NumberFormat("#,###");
+  List<String> _history = []; // 計算履歴用
+  final formatter = NumberFormat("#,###.###");
 
   void _btnPressed(String val) {
     setState(() {
@@ -237,6 +238,8 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
         if (_expression.isNotEmpty) _expression = _expression.substring(0, _expression.length - 1);
       } else if (val == "=") {
         if (_result != "エラー" && _result != "...") {
+          _history.insert(0, "$_expression = $_result"); // 履歴に追加
+          if (_history.length > 20) _history.removeLast();
           _expression = _result.replaceAll(",", "");
         }
       } else {
@@ -261,12 +264,12 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
       if (calcResult.isInfinite || calcResult.isNaN) {
         _result = "エラー";
       } else {
-        if (calcResult == calcResult.toInt()) {
-          _result = formatter.format(calcResult.toInt());
+        if (calcResult.abs() > 999999999) {
+          _result = calcResult.toStringAsExponential(2);
+        } else if (calcResult == calcResult.toInt()) {
+          _result = NumberFormat("#,###").format(calcResult.toInt());
         } else {
-          // 小数点第3位まで表示
-          _result = formatter.format(calcResult);
-          if (_result == "0" && calcResult != 0) _result = calcResult.toStringAsFixed(2);
+          _result = NumberFormat("#,###.###").format(calcResult);
         }
       }
     } catch (e) {
@@ -305,108 +308,148 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
 
   @override
   Widget build(BuildContext context) {
-    List<List<String>> grid = [
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: OrientationBuilder(
+          builder: (context, orientation) {
+            return orientation == Orientation.portrait 
+                ? _buildPortraitLayout() 
+                : _buildLandscapeLayout();
+          },
+        ),
+      ),
+    );
+  }
+
+  // 【縦向き】中央配置の電卓
+  Widget _buildPortraitLayout() {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 550),
+        child: Column(
+          children: [
+            _buildDisplayArea(4),
+            _buildButtonArea(6, 1.1),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 【横向き】左：履歴、右：電卓の2カラム構成
+  Widget _buildLandscapeLayout() {
+    return Row(
+      children: [
+        // 左側：計算履歴
+        Expanded(
+          flex: 4,
+          child: Container(
+            decoration: BoxDecoration(border: Border(right: BorderSide(color: Colors.grey[900]!, width: 2))),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text("履歴", style: TextStyle(color: Colors.white70, fontSize: 24, fontWeight: FontWeight.bold)),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: _history.length,
+                    itemBuilder: (context, i) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(_history[i], style: const TextStyle(color: Colors.white38, fontSize: 18)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // 右側：電卓本体
+        Expanded(
+          flex: 6,
+          child: Column(
+            children: [
+              _buildDisplayArea(3),
+              _buildButtonArea(7, 1.5), // 横向きはボタンを少し平たくして収まりを良くする
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 表示エリアの共通部品
+  Widget _buildDisplayArea(int flex) {
+    return Expanded(
+      flex: flex,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+        alignment: Alignment.bottomRight,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              reverse: true,
+              child: Text(_expression, style: const TextStyle(fontSize: 40, color: Colors.white70, fontWeight: FontWeight.w300)),
+            ),
+            const SizedBox(height: 8),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(_result, style: const TextStyle(fontSize: 80, fontWeight: FontWeight.bold, color: Color(0xFF40E0D0))),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ボタンエリアの共通部品
+  Widget _buildButtonArea(int flex, double aspectRatio) {
+    final List<List<String>> grid = [
       ["C", "BS", "%", "÷"],
       ["7", "8", "9", "×"],
       ["4", "5", "6", "-"],
       ["1", "2", "3", "+"],
       ["0", "00", ".", "="],
     ];
-
-    return Scaffold(
-      backgroundColor: Colors.black, // 全体背景を黒に
-      appBar: AppBar(
-        title: const Text("標準電卓", style: TextStyle(color: Colors.white)), 
-        backgroundColor: Colors.black,
-        elevation: 0,
-      ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 550),
-          child: Column(
-            children: [
-              // 表示エリア
-              Expanded(
-                flex: 3,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-                  alignment: Alignment.bottomRight,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      // 計算式（白で見やすく）
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        reverse: true,
-                        child: Text(_expression, 
-                          style: const TextStyle(fontSize: 44, color: Colors.white, fontWeight: FontWeight.w300)),
-                      ),
-                      const SizedBox(height: 12),
-                      // リアルタイム結果（青系で見やすく）
-                      Text(_result, 
-                        style: TextStyle(fontSize: 64, fontWeight: FontWeight.bold, color: Colors.blueAccent[100])),
-                    ],
-                  ),
-                ),
-              ),
-              // ボタンエリア
-              Expanded(
-                flex: 7,
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: GridView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 4,
-                      childAspectRatio: 1.1, 
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                    ),
-                    itemCount: 20,
-                    itemBuilder: (context, index) {
-                      String label = grid[index ~/ 4][index % 4];
-                      return _buildHighResponseButton(label);
-                    },
-                  ),
-                ),
-              ),
-            ],
+    return Expanded(
+      flex: flex,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: GridView.builder(
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 4,
+            childAspectRatio: aspectRatio,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
           ),
+          itemCount: 20,
+          itemBuilder: (context, index) => _buildTouchButton(grid[index ~/ 4][index % 4]),
         ),
       ),
     );
   }
 
-  // 感度を上げたカスタムボタン
-  Widget _buildHighResponseButton(String label) {
+  Widget _buildTouchButton(String label) {
     bool isOp = _isOperator(label) || label == "=";
     bool isAction = ["C", "BS"].contains(label);
-
-    Color bgColor = Colors.grey[900]!; // 基本は濃いグレー
-    Color textColor = Colors.white;
-
-    if (isAction) {
-      bgColor = Colors.blueGrey[800]!; // クリア系は少し明るい寒色
-      textColor = Colors.cyanAccent;
-    } else if (isOp) {
-      bgColor = Colors.orange[800]!; // 演算子はオレンジ
-    }
+    Color bgColor = const Color(0xFF2C2C2E);
+    if (isAction) bgColor = const Color(0xFF636366);
+    else if (isOp) bgColor = const Color(0xFFFF9F0A);
 
     return GestureDetector(
-      onTapDown: (_) => _btnPressed(label), // 指が触れた瞬間に反応
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => _btnPressed(label),
       child: Container(
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2)),
-          ],
-        ),
+        decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12)),
         child: Center(
-          child: Text(label, 
-            style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: textColor)),
+          child: Text(label, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white)),
         ),
       ),
     );
