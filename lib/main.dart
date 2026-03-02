@@ -216,7 +216,7 @@ class _NojimaThreeCalcPageState extends State<NojimaThreeCalcPage> {
 }
 
 // ---------------------------------------------------------
-// 画面2: 標準電卓 (サイズ圧縮・目に優しいグレー・横向き完結版)
+// 画面2: 標準電卓 (キーボード拡大・下部配置・横向き最適化版)
 // ---------------------------------------------------------
 class SimpleCalcPage extends StatefulWidget {
   const SimpleCalcPage({super.key});
@@ -304,22 +304,24 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
     bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
     return Scaffold(
-      backgroundColor: Colors.grey[100], // 目に優しい薄いグレーに変更
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text("タクポチ", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text("たくぽち", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.blueGrey[800],
         elevation: 0,
+        toolbarHeight: isLandscape ? 40 : 56, // 横向きはバーも少し細くしてスペースを確保
       ),
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480), // 縦横共通で少しコンパクトに
+          constraints: const BoxConstraints(maxWidth: 500), 
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.end, // 全体を下に寄せる
             children: [
-              // 1. 表示エリア（横向きは高さを大幅に圧縮）
+              // 1. 表示エリア（さらに高さを削ってキーボードに譲る）
               Expanded(
-                flex: isLandscape ? 2 : 3, // 横向きは flex 2 で高さを抑える
+                flex: isLandscape ? 2 : 3,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                   alignment: Alignment.bottomRight,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -328,24 +330,20 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         reverse: true,
-                        child: Text(_expression, style: const TextStyle(fontSize: 32, color: Colors.black54)),
+                        child: Text(_expression, style: const TextStyle(fontSize: 30, color: Colors.black54)),
                       ),
-                      const SizedBox(height: 5),
                       FittedBox(
                         fit: BoxFit.scaleDown,
-                        child: Text(_result, style: TextStyle(fontSize: 70, fontWeight: FontWeight.bold, color: Colors.blueGrey[900])),
+                        child: Text(_result, style: TextStyle(fontSize: 65, fontWeight: FontWeight.bold, color: Colors.blueGrey[900])),
                       ),
                     ],
                   ),
                 ),
               ),
-              // 2. ボタンエリア（横向きは間隔を詰める）
-              Expanded(
-                flex: isLandscape ? 8 : 7,
-                child: Padding(
-                  padding: const EdgeInsets.all(10.0),
-                  child: _buildGrid(isLandscape),
-                ),
+              // 2. ボタンエリア（横向き時に大きく表示）
+              Padding(
+                padding: EdgeInsets.fromLTRB(12, 0, 12, isLandscape ? 10 : 20),
+                child: _buildGrid(isLandscape),
               ),
             ],
           ),
@@ -364,12 +362,13 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
     ];
 
     return GridView.builder(
+      shrinkWrap: true, // 高さを中身に合わせる
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 4,
-        // 横向きは少し横長（1.4）にすることで、潰れて見えるのを防ぐ
-        childAspectRatio: isLandscape ? 1.4 : 1.15, 
-        mainAxisSpacing: isLandscape ? 6 : 10, // 横向きは上下間隔を詰めて高さを稼ぐ
+        // 横向きは1.6にすることで、ボタンをさらに縦に大きく
+        childAspectRatio: isLandscape ? 1.6 : 1.15, 
+        mainAxisSpacing: 8,
         crossAxisSpacing: 10,
       ),
       itemCount: 20,
@@ -384,7 +383,6 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
     bool isOp = _isOperator(label) || label == "=";
     bool isAction = ["C", "BS", "%"].contains(label);
 
-    // 落ち着いた白ベースの配色
     Color bgColor = Colors.white;
     Color textColor = Colors.black87;
 
@@ -405,11 +403,11 @@ class _SimpleCalcPageState extends State<SimpleCalcPage> {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.grey[200]!),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 2, offset: const Offset(0, 2)),
+            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 2, offset: const Offset(0, 2)),
           ],
         ),
         child: Center(
-          child: Text(label, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+          child: Text(label, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
         ),
       ),
     );
